@@ -1,12 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Compass, Lock, Mail, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  Loader2,
+  ArrowLeft,
+  KeyRound,
+  CheckCircle2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -14,13 +30,37 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Forgot password dialog state
+  const [isForgotOpen, setIsForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [isSendingReset, setIsSendingReset] = useState(false)
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null)
+  const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null)
+
+  // Load saved email on mount if remember me was used
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('saved_login_email')
+    if (savedEmail) {
+      setEmail(savedEmail)
+      setRememberMe(true)
+    }
+  }, [])
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setErrorMessage(null)
+
+    // Handle remember me persistence
+    if (rememberMe) {
+      localStorage.setItem('saved_login_email', email)
+    } else {
+      localStorage.removeItem('saved_login_email')
+    }
 
     try {
       const supabase = createClient()
@@ -32,112 +72,392 @@ export default function LoginPage() {
       if (error) {
         setErrorMessage(
           error.message === 'Invalid login credentials'
-            ? 'Email atau kata sandi yang Anda masukkan salah.'
+            ? 'Email atau kata sandi yang Anda masukkan tidak sesuai.'
             : error.message
         )
         setIsLoading(false)
         return
       }
 
-      // Successful login
+      // Login success
       router.push('/dashboard')
       router.refresh()
     } catch (err: any) {
-      setErrorMessage(err.message || 'Terjadi kesalahan saat masuk ke sistem.')
+      setErrorMessage(err.message || 'Terjadi gangguan saat memproses login.')
       setIsLoading(false)
     }
   }
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSendingReset(true)
+    setResetErrorMessage(null)
+    setResetSuccessMessage(null)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
+      })
+
+      if (error) {
+        setResetErrorMessage(error.message)
+      } else {
+        setResetSuccessMessage(
+          'Tautan pemulihan kata sandi telah dikirimkan ke email Anda. Silakan periksa folder Inbox atau Spam.'
+        )
+      }
+    } catch (err: any) {
+      setResetErrorMessage(err.message || 'Gagal mengirim email reset password.')
+    } finally {
+      setIsSendingReset(false)
+    }
+  }
+
   return (
-    <Card className="border-border/60 bg-card/90 backdrop-blur-xl shadow-2xl overflow-hidden">
-      {/* Top Emerald Border Stripe */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600" />
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white dark:bg-slate-950 font-sans">
+      {/* ============================================================ */}
+      {/* LEFT PANEL: Deep Emerald Branding & Mosque Silhouette        */}
+      {/* ============================================================ */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[#0d7a64] relative flex-col justify-between p-12 lg:p-16 text-white overflow-hidden">
+        {/* Subtle Background Pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
-      <CardHeader className="text-center pt-8 pb-4">
-        <Link href="/" className="inline-flex items-center justify-center gap-2 mb-2 text-xs text-muted-foreground hover:text-emerald-500 transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Kembali ke Halaman Utama</span>
-        </Link>
-        <div className="mx-auto h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-600/30 mb-2">
-          <Compass className="h-7 w-7" />
+        {/* Top Header: Logo "TU" & Title */}
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="h-11 w-11 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center text-white font-bold text-base shadow-sm tracking-wider">
+            TU
+          </div>
+          <div>
+            <h2 className="font-bold text-base leading-tight text-white tracking-tight">
+              Travel Umroh & Haji
+            </h2>
+            <p className="text-xs text-emerald-100/80 font-normal">
+              Sistem Manajemen Umroh & Haji
+            </p>
+          </div>
         </div>
-        <CardTitle className="text-xl font-bold tracking-tight text-foreground">
-          Portal Manajemen Travel
-        </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Masuk dengan akun terdaftar untuk mengakses dashboard operasional
-        </CardDescription>
-      </CardHeader>
 
-      <CardContent className="px-6 pb-8">
-        {errorMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-medium">
-            {errorMessage}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">Alamat Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="nama@travel.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="pl-9 h-10 text-sm bg-background/50"
-              />
-            </div>
+        {/* Middle Content: Pill, Headline, Subtitle, Checklists */}
+        <div className="relative z-10 my-auto max-w-lg space-y-6 pt-8 pb-12">
+          {/* Pill Badge */}
+          <div className="inline-flex items-center gap-2 bg-emerald-800/40 border border-emerald-400/20 text-emerald-100 text-xs px-3.5 py-1.5 rounded-full shadow-2xs font-medium">
+            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+            <span>Sistem Terintegrasi Multi-Cabang</span>
           </div>
 
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Kata Sandi</label>
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="pl-9 pr-9 h-10 text-sm bg-background/50"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
+          {/* Headline */}
+          <h1 className="text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+            Kelola perjalanan ibadah
+            <br />
+            dengan lebih tenang.
+          </h1>
 
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium h-10 mt-2 shadow-md shadow-emerald-600/20"
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Memverifikasi...</span>
+          {/* Description */}
+          <p className="text-sm text-emerald-100/90 leading-relaxed font-normal">
+            Pendaftaran jamaah, dokumen, pembayaran, manasik, manifest keberangkatan, hingga komisi
+            agen — semuanya rapi dalam satu platform.
+          </p>
+
+          {/* Checklist Items */}
+          <div className="space-y-3.5 pt-2">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <Check className="h-3 w-3 text-white stroke-[3]" />
+              </div>
+              <span className="text-xs sm:text-sm text-emerald-50 font-normal">
+                Data jamaah & dokumen terpusat dan aman
               </span>
-            ) : (
-              'Masuk ke Sistem'
-            )}
-          </Button>
-        </form>
+            </div>
 
-        <div className="mt-6 pt-4 border-t border-border/60 text-center">
-          <p className="text-[11px] text-muted-foreground">
-            Lupa kata sandi atau butuh akses akun baru? Hubungi Staf Kantor Pusat atau Admin Cabang Anda.
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <Check className="h-3 w-3 text-white stroke-[3]" />
+              </div>
+              <span className="text-xs sm:text-sm text-emerald-50 font-normal">
+                Pembayaran, cicilan, dan kuitansi otomatis
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <Check className="h-3 w-3 text-white stroke-[3]" />
+              </div>
+              <span className="text-xs sm:text-sm text-emerald-50 font-normal">
+                Manasik, manifest, serta komisi agen real-time
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mosque Dome & Minarets SVG Illustration positioned at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none opacity-25">
+          <svg
+            viewBox="0 0 700 260"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-full h-auto text-emerald-300 fill-current"
+          >
+            {/* Left Minaret */}
+            <path d="M70 260V90L77 82V65L82 60V35L77 30L82 10L87 30L82 35V60L87 65V82L94 90V260H70Z" />
+            <circle cx="82" cy="7" r="3" />
+            {/* Small Dome Left */}
+            <path d="M120 260V180C120 130 180 120 210 90C240 120 300 130 300 180V260H120Z" />
+            <path d="M210 90V65L207 62L210 50L213 62L210 65Z" />
+            {/* Grand Center Dome */}
+            <path d="M250 260V160C250 80 340 70 380 20C420 70 510 80 510 160V260H250Z" />
+            <path d="M380 20V0L377 -2L380 -12L383 -2L380 0Z" />
+            {/* Small Dome Right */}
+            <path d="M470 260V185C470 140 520 130 550 100C580 130 630 140 630 185V260H470Z" />
+            {/* Right Minaret */}
+            <path d="M640 260V90L647 82V65L652 60V35L647 30L652 10L657 30L652 35V60L657 65V82L664 90V260H640Z" />
+            <circle cx="652" cy="7" r="3" />
+          </svg>
+        </div>
+
+        {/* Left Footer */}
+        <div className="relative z-10 pt-4">
+          <p className="text-xs text-emerald-100/70 font-normal">
+            © 2026 Travel Umroh & Haji — Sistem Manajemen Umroh & Haji.
           </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* ============================================================ */}
+      {/* RIGHT PANEL: Clean Minimalist Login Form                     */}
+      {/* ============================================================ */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-12 lg:p-16 min-h-screen bg-white dark:bg-slate-950">
+        {/* Mobile Header (Brand Icon & Title for <1024px screens) */}
+        <div className="lg:hidden flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-lg bg-[#0d7a64] flex items-center justify-center text-white font-bold text-xs shadow-xs">
+              TU
+            </div>
+            <div>
+              <span className="font-bold text-sm text-slate-900 dark:text-white block leading-tight">
+                Travel Umroh & Haji
+              </span>
+              <span className="text-[10px] text-slate-500 block">
+                Sistem Manajemen Terpadu
+              </span>
+            </div>
+          </div>
+          <Link href="/" className="text-xs text-slate-500 hover:text-[#0d7a64] flex items-center gap-1">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Beranda</span>
+          </Link>
+        </div>
+
+        {/* Main Login Form Container */}
+        <div className="my-auto max-w-sm sm:max-w-md w-full mx-auto py-8">
+          {/* Form Header */}
+          <div className="mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Selamat datang kembali
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-normal">
+              Masuk menggunakan akun Anda untuk melanjutkan.
+            </p>
+          </div>
+
+          {/* Error Message Alert */}
+          {errorMessage && (
+            <div className="mb-5 p-3.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-medium">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Email Field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type="email"
+                  placeholder="nama@travel.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="pl-10 h-11 text-sm bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 rounded-lg focus-visible:border-[#0d7a64] focus-visible:ring-[#0d7a64]/20"
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotEmail(email)
+                    setIsForgotOpen(true)
+                  }}
+                  className="text-xs font-semibold text-[#0d7a64] hover:underline"
+                >
+                  Lupa password?
+                </button>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="pl-10 pr-10 h-11 text-sm bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 rounded-lg focus-visible:border-[#0d7a64] focus-visible:ring-[#0d7a64]/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#0d7a64] focus:ring-[#0d7a64] accent-[#0d7a64] cursor-pointer"
+              />
+              <label
+                htmlFor="rememberMe"
+                className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer select-none"
+              >
+                Ingat saya di perangkat ini
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-11 bg-[#0d7a64] hover:bg-[#0b6855] text-white font-semibold rounded-lg text-sm transition-all shadow-xs"
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Memproses...</span>
+                </span>
+              ) : (
+                'Masuk'
+              )}
+            </Button>
+          </form>
+
+          {/* Help Callout Card */}
+          <div className="mt-8 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/50 p-4 text-center">
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+              Belum punya akun? Akun jamaah, agen, dan muthawif dibuat oleh staf kantor. Silakan
+              hubungi admin cabang Anda untuk mendapatkan akses.
+            </p>
+          </div>
+        </div>
+
+        {/* Right Footer */}
+        <div className="text-center pt-6">
+          <p className="text-xs text-slate-400 dark:text-slate-600 font-normal">
+            © 2026 Travel Umroh & Haji
+          </p>
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* FORGOT PASSWORD MODAL DIALOG (SUPABASE AUTH)                 */}
+      {/* ============================================================ */}
+      <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center text-[#0d7a64] mb-2">
+              <KeyRound className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold">Lupa Password</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Masukkan alamat email akun Anda. Kami akan mengirimkan instruksi dan tautan untuk
+              membuat kata sandi baru.
+            </DialogDescription>
+          </DialogHeader>
+
+          {resetSuccessMessage ? (
+            <div className="py-4 space-y-4 text-center">
+              <div className="mx-auto h-12 w-12 rounded-full bg-emerald-50 text-[#0d7a64] flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {resetSuccessMessage}
+              </p>
+              <Button
+                onClick={() => {
+                  setIsForgotOpen(false)
+                  setResetSuccessMessage(null)
+                }}
+                className="w-full bg-[#0d7a64] hover:bg-[#0b6855] text-white text-xs h-9"
+              >
+                Tutup
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleResetPassword} className="space-y-4 pt-2">
+              {resetErrorMessage && (
+                <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-xs">
+                  {resetErrorMessage}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Email Akun</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="email"
+                    placeholder="nama@travel.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    className="pl-9 h-10 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsForgotOpen(false)}
+                  className="text-xs h-9"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSendingReset}
+                  className="bg-[#0d7a64] hover:bg-[#0b6855] text-white text-xs h-9"
+                >
+                  {isSendingReset ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Mengirim...</span>
+                    </span>
+                  ) : (
+                    'Kirim Link Reset'
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
