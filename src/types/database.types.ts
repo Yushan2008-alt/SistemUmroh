@@ -18,8 +18,8 @@ export type PaymentMethod = 'transfer' | 'cash' | 'edc'
 export type AttendanceStatus = 'present' | 'sick' | 'excused' | 'absent'
 export type RoomType = 'quad' | 'triple' | 'double'
 export type EquipmentStatus = 'pending' | 'handed_over' | 'returned'
-export type CommissionStatus = 'pending' | 'approved' | 'paid'
-export type AnnouncementAudience = 'all' | 'staff' | 'agents' | 'pilgrims' | 'guides'
+export type CommissionStatus = 'pending' | 'approved' | 'paid' | 'cancelled'
+export type AnnouncementAudience = 'all' | 'staff' | 'agents' | 'pilgrims' | 'guides' | 'agent' | 'pilgrim' | 'guide'
 
 export interface Database {
   public: {
