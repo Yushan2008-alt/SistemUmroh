@@ -267,6 +267,67 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Quick Demo Logins Bar */}
+          <div className="mb-6 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                Pilih Akun Demo (Password: password)
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('superadmin@example.com')
+                  setPassword('password')
+                }}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-600 text-left transition-colors"
+              >
+                👑 Super Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@example.com')
+                  setPassword('password')
+                }}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:border-blue-500 hover:text-blue-600 text-left transition-colors"
+              >
+                🏢 Admin Cabang
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('agent@example.com')
+                  setPassword('password')
+                }}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:border-amber-500 hover:text-amber-600 text-left transition-colors"
+              >
+                💼 Mitra Agen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('jamaah@example.com')
+                  setPassword('password')
+                }}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:border-purple-500 hover:text-purple-600 text-left transition-colors"
+              >
+                🕋 Jamaah Umroh
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('muthawif@example.com')
+                  setPassword('password')
+                }}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:border-teal-500 hover:text-teal-600 text-left transition-colors col-span-2 sm:col-span-1"
+              >
+                👳 Muthawif
+              </button>
+            </div>
+          </div>
+
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email Field */}

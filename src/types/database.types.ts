@@ -914,3 +914,9 @@ export interface Database {
     }
   }
 }
+
+export type Hotel = Database['public']['Tables']['hotels']['Row']
+export type Airline = Database['public']['Tables']['airlines']['Row']
+export type BankAccount = Database['public']['Tables']['bank_accounts']['Row']
+export type Agent = Database['public']['Tables']['agents']['Row']
+export type Guide = Database['public']['Tables']['guides']['Row']

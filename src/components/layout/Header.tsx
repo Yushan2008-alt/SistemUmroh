@@ -5,6 +5,7 @@ import { Menu, Bell } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { BranchFocusSwitcher } from './BranchFocusSwitcher'
+import { DemoRoleSwitcher } from './DemoRoleSwitcher'
 import { UserNav } from './UserNav'
 import { Sidebar } from './Sidebar'
 import { cn } from '@/lib/utils'
@@ -37,8 +38,9 @@ export function Header({ userRole = 'super_admin', title = 'Sistem Manajemen Tra
         </h1>
       </div>
 
-      {/* Right: Branch Focus (Super Admin) & User Nav */}
-      <div className="flex items-center gap-3">
+      {/* Right: Demo Role Switcher, Branch Focus & User Nav */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        <DemoRoleSwitcher currentRole={userRole} />
         {userRole === 'super_admin' && <BranchFocusSwitcher />}
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="h-4 w-4" />
@@ -49,3 +51,4 @@ export function Header({ userRole = 'super_admin', title = 'Sistem Manajemen Tra
     </header>
   )
 }
+

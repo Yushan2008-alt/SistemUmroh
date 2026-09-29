@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { NAVIGATION_ITEMS } from '@/lib/constants'
+import { NAVIGATION_GROUPS } from '@/lib/constants'
 import type { Role } from '@/types/database.types'
 import { Compass, Sparkles } from 'lucide-react'
 
@@ -15,8 +15,11 @@ interface SidebarProps {
 export function Sidebar({ userRole = 'super_admin', appName = 'Al-Madinah Travel' }: SidebarProps) {
   const pathname = usePathname()
 
-  // Filter navigation items accessible by current user's role
-  const visibleNavItems = NAVIGATION_ITEMS.filter((item) => item.roles.includes(userRole))
+  // Filter groups and items accessible by current user's role
+  const visibleGroups = NAVIGATION_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.roles.includes(userRole)),
+  })).filter((group) => group.roles.includes(userRole) && group.items.length > 0)
 
   return (
     <aside className="w-64 border-r border-border bg-card hidden md:flex md:flex-col h-screen sticky top-0 z-30">
@@ -37,42 +40,53 @@ export function Sidebar({ userRole = 'super_admin', appName = 'Al-Madinah Travel
         </Link>
       </div>
 
-      {/* Nav List */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        <div className="px-3 pb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Menu Utama
-        </div>
-        {visibleNavItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
-          const Icon = item.icon
+      {/* Nav List with Group Headers */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+        {visibleGroups.map((group, groupIndex) => (
+          <div key={group.label || `group-${groupIndex}`} className="space-y-1">
+            {group.label && (
+              <div className="px-3 pt-2 pb-1 text-[11px] font-bold text-muted-foreground/80 tracking-wider uppercase">
+                {group.label}
+              </div>
+            )}
+            {group.items.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== '/dashboard' && pathname.startsWith(item.href))
+              const Icon = item.icon
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-              )}
-            >
-              <Icon
-                className={cn(
-                  'h-4 w-4 shrink-0 transition-colors',
-                  isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
-                )}
-              />
-              <span className="truncate">{item.title}</span>
-              {item.badge && (
-                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          )
-        })}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 font-semibold shadow-xs'
+                      : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-4 w-4 shrink-0 transition-colors',
+                      isActive
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground'
+                    )}
+                  />
+                  <span className="truncate">{item.title}</span>
+                  {item.badge && (
+                    <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
       </div>
+
 
       {/* Footer Info */}
       <div className="p-3 border-t border-border mt-auto">

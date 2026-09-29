@@ -15,8 +15,11 @@ import {
   UserCog,
   Settings,
   ShieldCheck,
-  Compass,
-  FileCheck2,
+  Hotel,
+  Plane,
+  Landmark,
+  Handshake,
+  BookOpen,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -27,113 +30,282 @@ export interface NavItem {
   badge?: string
 }
 
-export const NAVIGATION_ITEMS: NavItem[] = [
-  // Dashboard for all roles
+export interface NavGroup {
+  label?: string
+  roles: Role[]
+  items: NavItem[]
+}
+
+export const NAVIGATION_GROUPS: NavGroup[] = [
+  // Dashboard Section
   {
-    title: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
     roles: ['super_admin', 'admin', 'agent', 'pilgrim', 'guide'],
+    items: [
+      {
+        title: 'Dashboard',
+        href: '/dashboard',
+        icon: LayoutDashboard,
+        roles: ['super_admin', 'admin', 'agent', 'pilgrim', 'guide'],
+      },
+    ],
   },
-  // Master Cabang (Super Admin only)
+
+  // STAFF: MASTER DATA
   {
-    title: 'Kelola Cabang',
-    href: '/branches',
-    icon: Building2,
-    roles: ['super_admin'],
-  },
-  // Master Paket, Hotel & Maskapai
-  {
-    title: 'Paket Umroh & Haji',
-    href: '/packages',
-    icon: Package,
-    roles: ['super_admin', 'admin', 'agent'],
-  },
-  // Data Jamaah
-  {
-    title: 'Data Jamaah',
-    href: '/pilgrims',
-    icon: Users,
-    roles: ['super_admin', 'admin', 'agent', 'guide'],
-  },
-  // Pendaftaran / Booking
-  {
-    title: 'Pendaftaran & Kuota',
-    href: '/registrations',
-    icon: UserCheck,
-    roles: ['super_admin', 'admin', 'agent'],
-  },
-  // Checklist & Verifikasi Dokumen
-  {
-    title: 'Dokumen & Paspor',
-    href: '/documents',
-    icon: FileText,
-    roles: ['super_admin', 'admin', 'agent', 'pilgrim'],
-  },
-  // Billing, Kasir & Kwitansi
-  {
-    title: 'Tagihan & Kasir',
-    href: '/payments',
-    icon: CreditCard,
-    roles: ['super_admin', 'admin', 'agent', 'pilgrim'],
-  },
-  // Bimbingan & Presensi Manasik
-  {
-    title: 'Jadwal Manasik',
-    href: '/manasik',
-    icon: CalendarDays,
-    roles: ['super_admin', 'admin', 'guide', 'pilgrim'],
-  },
-  // Manifest Penerbangan & Rooming
-  {
-    title: 'Manifest & Rooming',
-    href: '/manifests',
-    icon: PlaneTakeoff,
-    roles: ['super_admin', 'admin', 'guide'],
-  },
-  // Distribusi Logistik Perlengkapan
-  {
-    title: 'Perlengkapan Jamaah',
-    href: '/equipment',
-    icon: Luggage,
-    roles: ['super_admin', 'admin', 'pilgrim'],
-  },
-  // Komisi Agen
-  {
-    title: 'Komisi Agen',
-    href: '/commissions',
-    icon: Coins,
-    roles: ['super_admin', 'admin', 'agent'],
-  },
-  // Pengumuman Internal
-  {
-    title: 'Pengumuman',
-    href: '/announcements',
-    icon: Megaphone,
-    roles: ['super_admin', 'admin', 'agent', 'pilgrim', 'guide'],
-  },
-  // Manajemen Akun Pengguna
-  {
-    title: 'Kelola Pengguna',
-    href: '/users',
-    icon: UserCog,
+    label: 'MASTER DATA',
     roles: ['super_admin', 'admin'],
+    items: [
+      {
+        title: 'Kelola Cabang',
+        href: '/branches',
+        icon: Building2,
+        roles: ['super_admin'],
+      },
+      {
+        title: 'Paket Umroh & Haji',
+        href: '/packages',
+        icon: Package,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Hotel Makkah & Madinah',
+        href: '/hotels',
+        icon: Hotel,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Maskapai Penerbangan',
+        href: '/airlines',
+        icon: Plane,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Rekening Bank',
+        href: '/bank-accounts',
+        icon: Landmark,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Mitra Agen',
+        href: '/agents',
+        icon: Handshake,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Muthawif / Guide',
+        href: '/guides',
+        icon: BookOpen,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Data Jamaah',
+        href: '/pilgrims',
+        icon: Users,
+        roles: ['super_admin', 'admin'],
+      },
+    ],
   },
-  // Pengaturan White-Label
+
+  // STAFF: OPERASIONAL
   {
-    title: 'Pengaturan Sistem',
-    href: '/settings',
-    icon: Settings,
-    roles: ['super_admin'],
-  },
-  // Audit Trail Activity Logs
-  {
-    title: 'Log Aktivitas',
-    href: '/activity-logs',
-    icon: ShieldCheck,
+    label: 'OPERASIONAL',
     roles: ['super_admin', 'admin'],
+    items: [
+      {
+        title: 'Pendaftaran & Kuota',
+        href: '/registrations',
+        icon: UserCheck,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Dokumen & Paspor',
+        href: '/documents',
+        icon: FileText,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Tagihan & Kasir',
+        href: '/payments',
+        icon: CreditCard,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Jadwal Manasik',
+        href: '/manasik',
+        icon: CalendarDays,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Manifest & Rooming',
+        href: '/manifests',
+        icon: PlaneTakeoff,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Perlengkapan Jamaah',
+        href: '/equipment',
+        icon: Luggage,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Komisi Agen',
+        href: '/commissions',
+        icon: Coins,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Pengumuman',
+        href: '/announcements',
+        icon: Megaphone,
+        roles: ['super_admin', 'admin'],
+      },
+    ],
+  },
+
+  // STAFF: SISTEM
+  {
+    label: 'SISTEM',
+    roles: ['super_admin', 'admin'],
+    items: [
+      {
+        title: 'Kelola Pengguna',
+        href: '/users',
+        icon: UserCog,
+        roles: ['super_admin', 'admin'],
+      },
+      {
+        title: 'Pengaturan Sistem',
+        href: '/settings',
+        icon: Settings,
+        roles: ['super_admin'],
+      },
+      {
+        title: 'Log Aktivitas',
+        href: '/activity-logs',
+        icon: ShieldCheck,
+        roles: ['super_admin', 'admin'],
+      },
+    ],
+  },
+
+  // AGENT: MARKETING
+  {
+    label: 'MARKETING',
+    roles: ['agent'],
+    items: [
+      {
+        title: 'Jamaah Referral',
+        href: '/pilgrims',
+        icon: Users,
+        roles: ['agent'],
+      },
+      {
+        title: 'Pendaftaran Paket',
+        href: '/registrations',
+        icon: UserCheck,
+        roles: ['agent'],
+      },
+      {
+        title: 'Komisi Saya',
+        href: '/commissions',
+        icon: Coins,
+        roles: ['agent'],
+      },
+      {
+        title: 'Paket Tersedia',
+        href: '/packages',
+        icon: Package,
+        roles: ['agent'],
+      },
+      {
+        title: 'Pengumuman Travel',
+        href: '/announcements',
+        icon: Megaphone,
+        roles: ['agent'],
+      },
+    ],
+  },
+
+  // PILGRIM: PERJALANAN SAYA
+  {
+    label: 'PERJALANAN SAYA',
+    roles: ['pilgrim'],
+    items: [
+      {
+        title: 'Pendaftaran Saya',
+        href: '/registrations',
+        icon: UserCheck,
+        roles: ['pilgrim'],
+      },
+      {
+        title: 'Dokumen & Paspor',
+        href: '/documents',
+        icon: FileText,
+        roles: ['pilgrim'],
+      },
+      {
+        title: 'Pembayaran & Tagihan',
+        href: '/payments',
+        icon: CreditCard,
+        roles: ['pilgrim'],
+      },
+      {
+        title: 'Jadwal Manasik',
+        href: '/manasik',
+        icon: CalendarDays,
+        roles: ['pilgrim'],
+      },
+      {
+        title: 'Perlengkapan Ibadah',
+        href: '/equipment',
+        icon: Luggage,
+        roles: ['pilgrim'],
+      },
+      {
+        title: 'Pengumuman Travel',
+        href: '/announcements',
+        icon: Megaphone,
+        roles: ['pilgrim'],
+      },
+    ],
+  },
+
+  // GUIDE: BIMBINGAN
+  {
+    label: 'BIMBINGAN',
+    roles: ['guide'],
+    items: [
+      {
+        title: 'Jamaah Bimbingan',
+        href: '/pilgrims',
+        icon: Users,
+        roles: ['guide'],
+      },
+      {
+        title: 'Manasik & Absensi',
+        href: '/manasik',
+        icon: CalendarDays,
+        roles: ['guide'],
+      },
+      {
+        title: 'Manifest Rombongan',
+        href: '/manifests',
+        icon: PlaneTakeoff,
+        roles: ['guide'],
+      },
+      {
+        title: 'Pengumuman Travel',
+        href: '/announcements',
+        icon: Megaphone,
+        roles: ['guide'],
+      },
+    ],
   },
 ]
+
+// Backward compatibility helper
+export const NAVIGATION_ITEMS: NavItem[] = NAVIGATION_GROUPS.flatMap((g) => g.items)
+
 
 export const ROLE_LABELS: Record<Role, string> = {
   super_admin: 'Super Admin Pusat',
