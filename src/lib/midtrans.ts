@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 // @ts-ignore
 import midtransClient from 'midtrans-client'
 
@@ -27,5 +28,28 @@ export function getMidtransCoreApi() {
 
 export function isMidtransConfigured(): boolean {
   const serverKey = process.env.MIDTRANS_SERVER_KEY
-  return Boolean(serverKey && !serverKey.includes('demo_key') && serverKey.startsWith('SB-Mid-server-'))
+  return Boolean(
+    serverKey &&
+    !serverKey.includes('demo_key') &&
+    (serverKey.startsWith('SB-Mid-server-') || serverKey.startsWith('Mid-server-'))
+  )
 }
+
+/**
+ * Verify Midtrans Webhook Notification Signature Key
+ * Format: SHA512(order_id + status_code + gross_amount + ServerKey)
+ */
+export function verifyMidtransSignature(
+  orderId: string,
+  statusCode: string,
+  grossAmount: string,
+  signatureKey: string
+): boolean {
+  const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
+  if (!serverKey) return false
+
+  const rawInput = `${orderId}${statusCode}${grossAmount}${serverKey}`
+  const expectedHash = crypto.createHash('sha512').update(rawInput).digest('hex')
+  return expectedHash.toLowerCase() === signatureKey.toLowerCase()
+}
+

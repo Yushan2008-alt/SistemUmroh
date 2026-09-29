@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { getMidtransSnap, getMidtransCoreApi, isMidtransConfigured } from '@/lib/midtrans'
+import { logActivity } from '@/lib/activity-logger'
 import type {
   PaymentListItem,
   PaymentStats,
@@ -210,7 +211,7 @@ export async function createMidtransSnapToken(
       return { success: false, message: 'Tagihan ini telah lunas.' }
     }
 
-    const orderId = `${payment.code}-${Date.now().toString().slice(-4)}`
+    const orderId = `PAY-${payment.id}-${payment.code}-${Date.now().toString().slice(-4)}`
     const pilgrim = payment.registrations?.pilgrims
     const packageName = payment.registrations?.packages?.name || 'Paket Umroh'
 
@@ -225,7 +226,7 @@ export async function createMidtransSnapToken(
           },
           customer_details: {
             first_name: pilgrim?.name || 'Jamaah',
-            email: 'jamaah@travel.com',
+            email: pilgrim?.email || 'jamaah@travel.com',
             phone: pilgrim?.phone || '08123456789',
           },
           item_details: [
@@ -235,6 +236,18 @@ export async function createMidtransSnapToken(
               quantity: 1,
               name: `${payment.type.toUpperCase()}: ${packageName}`.slice(0, 50),
             },
+          ],
+          enabled_payments: [
+            'bca_va',
+            'bni_va',
+            'bri_va',
+            'permata_va',
+            'echannel',
+            'other_va',
+            'gopay',
+            'shopeepay',
+            'qris',
+            'credit_card',
           ],
         }
 
@@ -284,7 +297,7 @@ export async function handleMidtransSnapSuccess(
 
     const { data: payment, error } = await supabase
       .from('payments')
-      .select('amount, paid_amount, status')
+      .select('*, registrations(*, packages(*))')
       .eq('id', paymentId)
       .single()
 
@@ -293,16 +306,16 @@ export async function handleMidtransSnapSuccess(
     }
 
     const totalAmount = Number(payment.amount) || 0
-    const newPaidAmount = totalAmount
+    const paymentLabel = paymentType ? paymentType.toUpperCase() : 'ONLINE'
 
     const { error: updateErr } = await supabase
       .from('payments')
       .update({
-        paid_amount: newPaidAmount,
+        paid_amount: totalAmount,
         status: 'paid',
         paid_at: new Date().toISOString(),
         method: 'transfer',
-        note: `Lunas via Midtrans Sandbox (${paymentType || 'QRIS/VA'}) Ref: ${orderId}`,
+        note: `Lunas via Midtrans Sandbox (${paymentLabel}) Ref: ${orderId}`,
       })
       .eq('id', paymentId)
 
@@ -310,10 +323,57 @@ export async function handleMidtransSnapSuccess(
       return { success: false, message: updateErr.message }
     }
 
+    // Update parent registration status automatically
+    if (payment.registration_id) {
+      const { data: allPayments } = await supabase
+        .from('payments')
+        .select('id, amount, paid_amount, status')
+        .eq('registration_id', payment.registration_id)
+
+      const registrationPrice = Number(payment.registrations?.total_price) || 0
+      const totalPaid = (allPayments || []).reduce((acc: number, curr: any) => {
+        if (curr.id === payment.id) return acc + totalAmount
+        return acc + (Number(curr.paid_amount) || 0)
+      }, 0)
+
+      const allInvoicesPaid = (allPayments || []).every(
+        (p: any) => p.id === payment.id || p.status === 'paid'
+      )
+
+      const nextStatus = allInvoicesPaid || totalPaid >= registrationPrice ? 'paid' : 'confirmed'
+
+      await supabase
+        .from('registrations')
+        .update({
+          status: nextStatus,
+        })
+        .eq('id', payment.registration_id)
+    }
+
+    // Write to Activity Logs (Audit Trail)
+    await logActivity({
+      action: 'payment_completed_snap',
+      subject_type: 'payment',
+      subject_id: String(payment.id),
+      description: `Pembayaran tagihan ${payment.code} sebesar Rp ${totalAmount.toLocaleString(
+        'id-ID'
+      )} via Midtrans ${paymentLabel} dinyatakan Lunas (Ref: ${orderId}).`,
+      branch_id: payment.branch_id,
+      properties: {
+        order_id: orderId,
+        payment_type: paymentType,
+        gross_amount: grossAmount,
+      },
+    })
+
     revalidatePath('/payments')
     revalidatePath('/registrations')
+    revalidatePath('/dashboard')
 
-    return { success: true, message: 'Pembayaran online Midtrans berhasil diselesaikan dan dinyatakan Lunas!' }
+    return {
+      success: true,
+      message: 'Pembayaran online Midtrans berhasil diselesaikan dan status tagihan otomatis Lunas!',
+    }
   } catch (err: any) {
     console.error('handleMidtransSnapSuccess error:', err)
     return { success: false, message: err.message || 'Gagal memproses status pembayaran' }
