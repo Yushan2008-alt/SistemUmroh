@@ -37,9 +37,11 @@ export function UserNav({ user }: UserNavProps) {
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      window.location.href = '/login'
+    }
   }
 
   return (
@@ -48,17 +50,19 @@ export function UserNav({ user }: UserNavProps) {
         {currentUser.name.charAt(0).toUpperCase()}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none truncate">{currentUser.name}</p>
-            <p className="text-xs leading-none text-muted-foreground truncate">{currentUser.email}</p>
-            <div className="pt-1.5 flex items-center gap-1.5">
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400">
-                {ROLE_LABELS[currentUser.role] || currentUser.role}
-              </Badge>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none truncate">{currentUser.name}</p>
+              <p className="text-xs leading-none text-muted-foreground truncate">{currentUser.email}</p>
+              <div className="pt-1.5 flex items-center gap-1.5">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400">
+                  {ROLE_LABELS[currentUser.role] || currentUser.role}
+                </Badge>
+              </div>
             </div>
-          </div>
-        </DropdownMenuLabel>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => router.push('/dashboard')} className="cursor-pointer">

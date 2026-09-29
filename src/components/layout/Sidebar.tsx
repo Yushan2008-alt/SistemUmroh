@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { NAVIGATION_GROUPS } from '@/lib/constants'
 import type { Role } from '@/types/database.types'
-import { Compass, Sparkles } from 'lucide-react'
+import { Compass, Sparkles, LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface SidebarProps {
   userRole?: Role
@@ -88,15 +89,35 @@ export function Sidebar({ userRole = 'super_admin', appName = 'Al-Madinah Travel
       </div>
 
 
-      {/* Footer Info */}
-      <div className="p-3 border-t border-border mt-auto">
-        <div className="p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      {/* Footer Info & Logout Button (1:1 Laravel) */}
+      <div className="p-3 border-t border-border mt-auto space-y-2">
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const supabase = createClient()
+              await supabase.auth.signOut()
+            } finally {
+              window.location.href = '/login'
+            }
+          }}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/60 transition-all cursor-pointer"
+          title="Keluar dari sistem dan kembali ke halaman login"
+        >
+          <div className="flex items-center gap-2.5">
+            <LogOut className="h-4 w-4 text-rose-600 shrink-0" />
+            <span>Keluar (Logout)</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground font-normal">/login</span>
+        </button>
+
+        <div className="p-2 rounded-lg bg-muted/40 border border-border/50 flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-medium text-emerald-900 dark:text-emerald-200 truncate">
+            <span className="text-[11px] font-medium text-foreground truncate">
               V1.0 Production
             </span>
-            <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 truncate">
+            <span className="text-[9px] text-muted-foreground truncate">
               Direct Supabase & RLS
             </span>
           </div>

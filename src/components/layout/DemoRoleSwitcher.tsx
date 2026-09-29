@@ -12,6 +12,7 @@ import {
   Check,
   Loader2,
   Sparkles,
+  LogOut,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -170,6 +171,22 @@ export function DemoRoleSwitcher({ currentRole = 'super_admin' }: DemoRoleSwitch
               </DropdownMenuItem>
             )
           })}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onClick={async () => {
+              try {
+                await supabase.auth.signOut()
+              } finally {
+                window.location.href = '/login'
+              }
+            }}
+            className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-rose-600 dark:text-rose-400 focus:bg-rose-50 dark:focus:bg-rose-950/50 font-medium text-xs"
+          >
+            <LogOut className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>Keluar ke Halaman Login (/login)</span>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
