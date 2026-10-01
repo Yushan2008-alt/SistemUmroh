@@ -131,7 +131,18 @@ export function MidtransPaymentModal({
               onError: (result: any) => {
                 toast.error('Pembayaran gagal atau dibatalkan.')
               },
-              onClose: () => {
+              onClose: async () => {
+                if (res.snap?.order_id && !res.snap?.is_mock) {
+                  try {
+                    const syncRes = await syncMidtransTransactionStatus(payment.id, res.snap.order_id)
+                    if (syncRes.success && syncRes.status === 'paid') {
+                      toast.success(syncRes.message || 'Pembayaran Midtrans terkonfirmasi lunas!')
+                      onSuccess()
+                    }
+                  } catch (e) {
+                    console.error('Auto sync on close error:', e)
+                  }
+                }
                 onClose()
               },
             })
@@ -365,8 +376,20 @@ export function MidtransPaymentModal({
                         onPending: () => {
                           toast.info('Menunggu pembayaran diselesaikan oleh jamaah.')
                         },
-                        onError: () => toast.error('Pembayaran gagal atau dibatalkan.'),
-                        onClose: () => onClose(),
+                        onClose: async () => {
+                          if (orderId && !isMock) {
+                            try {
+                              const syncRes = await syncMidtransTransactionStatus(payment.id, orderId)
+                              if (syncRes.success && syncRes.status === 'paid') {
+                                toast.success(syncRes.message || 'Pembayaran Midtrans terkonfirmasi lunas!')
+                                onSuccess()
+                              }
+                            } catch (e) {
+                              console.error('Auto sync on close error:', e)
+                            }
+                          }
+                          onClose()
+                        },
                       })
                     }
                   }}

@@ -44,19 +44,21 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // Public paths that do not require authentication
-  const isAuthPath = pathname.startsWith('/login')
+  // Public paths that do not require prior session
+  const isLoginPath = pathname.startsWith('/login')
+  const isAuthCallback = pathname.startsWith('/auth')
   const isPublicAsset = pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname.includes('.')
   const isRootLanding = pathname === '/'
+  const isCompleteProfile = pathname.startsWith('/complete-profile')
 
-  if (!user && !isAuthPath && !isPublicAsset && !isRootLanding) {
-    // No user and trying to access protected dashboard routes -> redirect to /login
+  if (!user && !isLoginPath && !isAuthCallback && !isPublicAsset && !isRootLanding) {
+    // No user and trying to access protected routes -> redirect to /login
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthPath) {
+  if (user && isLoginPath) {
     // User already authenticated and visiting /login -> redirect to /dashboard
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
