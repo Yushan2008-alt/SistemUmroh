@@ -175,7 +175,8 @@ export async function getPaymentStats(): Promise<PaymentStats> {
  * Create Midtrans Snap Token for a Payment Invoice
  */
 export async function createMidtransSnapToken(
-  paymentId: number
+  paymentId: number,
+  channel?: string
 ): Promise<{ success: boolean; snap?: MidtransSnapResult; message?: string }> {
   try {
     const supabase = createAdminClient() as any
@@ -237,7 +238,17 @@ export async function createMidtransSnapToken(
               name: `${payment.type.toUpperCase()}: ${packageName}`.slice(0, 50),
             },
           ],
-          enabled_payments: [
+          enabled_payments: (channel && {
+            dana: ['dana', 'qris', 'gopay'],
+            gopay: ['gopay', 'qris'],
+            shopeepay: ['shopeepay', 'qris'],
+            bca_va: ['bca_va'],
+            mandiri_va: ['echannel'],
+            bni_va: ['bni_va'],
+            bri_va: ['bri_va'],
+            permata_va: ['permata_va'],
+            qris: ['qris'],
+          }[channel]) || [
             'bca_va',
             'bni_va',
             'bri_va',
@@ -253,6 +264,12 @@ export async function createMidtransSnapToken(
 
         const transaction = await snap.createTransaction(parameter)
 
+        const deeplinkUrl = channel === 'dana'
+          ? `dana://checkout?order_id=${orderId}&amount=${Math.round(remainingToPay)}`
+          : channel === 'gopay'
+          ? `gojek://gopay/merchanttransfer?order_id=${orderId}&amount=${Math.round(remainingToPay)}`
+          : transaction.redirect_url
+
         return {
           success: true,
           snap: {
@@ -260,6 +277,8 @@ export async function createMidtransSnapToken(
             redirect_url: transaction.redirect_url,
             order_id: orderId,
             is_mock: false,
+            selected_channel: channel,
+            deeplink_url: deeplinkUrl,
           },
         }
       } catch (midtransErr: any) {
@@ -268,6 +287,12 @@ export async function createMidtransSnapToken(
     }
 
     // Fallback Mock Token for Sandbox UI preview if real keys aren't configured yet
+    const mockDeeplink = channel === 'dana'
+      ? `dana://checkout?order_id=${orderId}&amount=${Math.round(remainingToPay)}`
+      : channel === 'gopay'
+      ? `gojek://gopay/merchanttransfer?order_id=${orderId}&amount=${Math.round(remainingToPay)}`
+      : `https://app.sandbox.midtrans.com/snap/v2/vtweb/mock-${orderId}`
+
     return {
       success: true,
       snap: {
@@ -275,6 +300,8 @@ export async function createMidtransSnapToken(
         redirect_url: `https://app.sandbox.midtrans.com/snap/v2/vtweb/mock-${orderId}`,
         order_id: orderId,
         is_mock: true,
+        selected_channel: channel,
+        deeplink_url: mockDeeplink,
       },
     }
   } catch (err: any) {

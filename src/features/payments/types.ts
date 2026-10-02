@@ -86,4 +86,6 @@ export interface MidtransSnapResult {
   redirect_url: string
   order_id: string
   is_mock?: boolean
+  selected_channel?: string
+  deeplink_url?: string
 }

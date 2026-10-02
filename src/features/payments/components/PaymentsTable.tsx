@@ -237,10 +237,10 @@ export function PaymentsTable({ items }: PaymentsTableProps) {
                           <button
                             onClick={() => setMidtransDoc(payment)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors shadow-sm"
-                            title="Bayar Online via Midtrans Snap (QRIS, VA Bank)"
+                            title="Pilih Metode & Bayar (DANA, GoPay, VA Bank, QRIS)"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
-                            <span>Bayar Midtrans</span>
+                            <span>Bayar</span>
                           </button>
                         )}
 

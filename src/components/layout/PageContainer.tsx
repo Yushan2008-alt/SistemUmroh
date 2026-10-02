@@ -8,8 +8,8 @@ interface PageContainerProps {
 
 export function PageContainer({ children, className }: PageContainerProps) {
   return (
-    <main className={cn('flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6', className)}>
+    <div className={cn('space-y-6 w-full', className)}>
       {children}
-    </main>
+    </div>
   )
 }

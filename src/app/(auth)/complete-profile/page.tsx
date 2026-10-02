@@ -110,14 +110,16 @@ export default function CompleteProfilePage() {
     setErrorMessage(null)
     setSuccessMessage(null)
 
+        // Front-end Strict Validation for all required fields
     if (!name.trim()) {
-      setErrorMessage('Nama lengkap wajib diisi.')
+      setErrorMessage('Nama lengkap sesuai KTP wajib diisi.')
       setIsSubmitting(false)
       return
     }
 
-    if (!phone.trim()) {
-      setErrorMessage('Nomor WhatsApp / Telepon wajib diisi.')
+    const cleanPhone = phone.trim()
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setErrorMessage('Nomor WhatsApp / Handphone wajib diisi minimal 10 digit.')
       setIsSubmitting(false)
       return
     }
@@ -125,6 +127,18 @@ export default function CompleteProfilePage() {
     const cleanNik = nik.replace(/\D/g, '')
     if (cleanNik.length !== 16) {
       setErrorMessage('Nomor NIK KTP harus tepat 16 digit angka.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!birthPlace.trim()) {
+      setErrorMessage('Tempat lahir wajib diisi.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!birthDate) {
+      setErrorMessage('Tanggal lahir wajib diisi.')
       setIsSubmitting(false)
       return
     }
@@ -137,6 +151,30 @@ export default function CompleteProfilePage() {
 
     if (!branchId) {
       setErrorMessage('Pilih salah satu kantor cabang pendaftaran.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!passportNumber.trim()) {
+      setErrorMessage('Nomor paspor wajib diisi.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!passportExpiry) {
+      setErrorMessage('Masa berlaku paspor wajib diisi.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!emergencyContactName.trim()) {
+      setErrorMessage('Nama kontak darurat keluarga wajib diisi.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!emergencyContactPhone.trim() || emergencyContactPhone.trim().length < 10) {
+      setErrorMessage('Nomor telepon kontak darurat wajib diisi minimal 10 digit.')
       setIsSubmitting(false)
       return
     }
@@ -159,10 +197,8 @@ export default function CompleteProfilePage() {
     const res = await completePilgrimProfile(payload)
 
     if (res.success) {
-      setSuccessMessage('Data profil jamaah berhasil disimpan! Mengalihkan ke dashboard...')
-      setTimeout(() => {
-        window.location.href = '/dashboard'
-      }, 1000)
+      // INSTANT DIRECT REDIRECT KE DASHBOARD JAMAAH
+      window.location.href = '/dashboard'
     } else {
       setErrorMessage(res.error || 'Gagal menyimpan profil.')
       setIsSubmitting(false)
@@ -375,7 +411,7 @@ export default function CompleteProfilePage() {
               {/* Tempat Lahir */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Tempat Lahir
+                  Tempat Lahir <span className="text-rose-500">*</span>
                 </label>
                 <Input
                   type="text"
@@ -389,7 +425,7 @@ export default function CompleteProfilePage() {
               {/* Tanggal Lahir */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Tanggal Lahir
+                  Tanggal Lahir <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -454,7 +490,7 @@ export default function CompleteProfilePage() {
               {/* Nomor Paspor */}
               <div className="space-y-1.5 sm:col-span-1">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Nomor Paspor (Jika Ada)
+                  Nomor Paspor <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <FileText className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -471,7 +507,7 @@ export default function CompleteProfilePage() {
               {/* Tanggal Habis Berlaku Paspor */}
               <div className="space-y-1.5 sm:col-span-1">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Masa Berlaku Paspor
+                  Masa Berlaku Paspor <span className="text-rose-500">*</span>
                 </label>
                 <Input
                   type="date"
@@ -495,7 +531,7 @@ export default function CompleteProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Nama Kontak Darurat
+                  Nama Kontak Darurat <span className="text-rose-500">*</span>
                 </label>
                 <Input
                   type="text"
@@ -508,7 +544,7 @@ export default function CompleteProfilePage() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Nomor Telepon Kontak Darurat
+                  Nomor Telepon Kontak Darurat <span className="text-rose-500">*</span>
                 </label>
                 <Input
                   type="tel"
@@ -535,11 +571,11 @@ export default function CompleteProfilePage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Menyimpan Data...</span>
+                  <span>Menyimpan...</span>
                 </>
               ) : (
                 <>
-                  <span>Simpan & Masuk ke Dashboard</span>
+                  <span>Simpan</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

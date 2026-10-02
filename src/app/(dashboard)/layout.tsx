@@ -31,18 +31,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="min-h-screen flex bg-background text-foreground font-sans">
       {/* Desktop Sidebar */}
       <Sidebar userRole={userRole} appName="Al-Madinah Travel" />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header userRole={userRole} title={roleTitles[userRole] || 'Dashboard Operasional'} />
-        <div className="flex-1">
+        {/* Main page container with responsive left-right gap & max-w */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto w-full min-h-[calc(100vh-4rem)]">
           {children}
-        </div>
+        </main>
       </div>
     </div>
   )
 }
-

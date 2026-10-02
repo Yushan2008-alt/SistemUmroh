@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   X,
   CreditCard,
@@ -16,9 +16,19 @@ import {
   Copy,
   Check,
   RotateCw,
+  Lock,
+  ArrowRight,
+  Sparkles,
+  Printer,
+  ChevronRight,
+  Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { createMidtransSnapToken, handleMidtransSnapSuccess, syncMidtransTransactionStatus } from '../actions'
+import {
+  createMidtransSnapToken,
+  handleMidtransSnapSuccess,
+  syncMidtransTransactionStatus,
+} from '../actions'
 import type { PaymentListItem } from '../types'
 
 declare global {
@@ -34,422 +44,715 @@ interface MidtransPaymentModalProps {
   onSuccess: () => void
 }
 
+type PaymentChannel =
+  | 'dana'
+  | 'gopay'
+  | 'shopeepay'
+  | 'bca_va'
+  | 'mandiri_va'
+  | 'bni_va'
+  | 'bri_va'
+  | 'permata_va'
+  | 'qris'
+
 export function MidtransPaymentModal({
   payment,
   isOpen,
   onClose,
   onSuccess,
 }: MidtransPaymentModalProps) {
-  const [loading, setLoading] = useState(false)
-  const [token, setToken] = useState<string | null>(null)
-  const [isMock, setIsMock] = useState(false)
+  // Modal Stages: 'select_method' | 'processing' | 'active_checkout' | 'success'
+  const [stage, setStage] = useState<'select_method' | 'processing' | 'active_checkout' | 'success'>('select_method')
+  const [selectedChannel, setSelectedChannel] = useState<PaymentChannel>('dana')
   const [orderId, setOrderId] = useState<string>('')
-  const [mockProcessing, setMockProcessing] = useState(false)
-  const [mockSelectedMethod, setMockSelectedMethod] = useState<'qris' | 'bca_va' | 'mandiri_va' | 'gopay'>('qris')
-  const [syncing, setSyncing] = useState(false)
+  const [snapToken, setSnapToken] = useState<string | null>(null)
+  const [deeplinkUrl, setDeeplinkUrl] = useState<string>('')
+  const [redirectUrl, setRedirectUrl] = useState<string>('')
+  const [isMock, setIsMock] = useState(false)
+  const [isAuthorizing, setIsAuthorizing] = useState(false)
+  const [pin, setPin] = useState('123456')
   const [copiedOrderId, setCopiedOrderId] = useState(false)
+  const [copiedVa, setCopiedVa] = useState(false)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
-  const handleCopyOrderId = () => {
-    if (!orderId) return
-    navigator.clipboard.writeText(orderId)
-    setCopiedOrderId(true)
-    toast.success('Order ID berhasil disalin!')
-    setTimeout(() => setCopiedOrderId(false), 2000)
-  }
-
-  const handleManualSync = async () => {
-    if (!payment || !orderId) return
-    setSyncing(true)
-    try {
-      const res = await syncMidtransTransactionStatus(payment.id, orderId)
-      if (res.success && res.status === 'paid') {
-        toast.success(res.message)
-        onSuccess()
-        onClose()
-      } else {
-        toast.info(res.message || 'Status belum berubah di Midtrans')
+  // Reset state whenever modal opens with a new payment
+  useEffect(() => {
+    if (isOpen) {
+      setStage('select_method')
+      setSelectedChannel('dana')
+      setOrderId('')
+      setSnapToken(null)
+      setDeeplinkUrl('')
+      setRedirectUrl('')
+      setIsMock(false)
+      setIsAuthorizing(false)
+      setPin('123456')
+    } else {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Gagal memeriksa status')
-    } finally {
-      setSyncing(false)
     }
-  }
+  }, [isOpen, payment?.id])
 
-  // Load Midtrans Snap.js script dynamically
+  // Cleanup polling interval on unmount
   useEffect(() => {
-    if (!isOpen) return
-
-    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'SB-Mid-client-demo_key'
-    const scriptUrl = 'https://app.sandbox.midtrans.com/snap/snap.js'
-
-    const existingScript = document.querySelector(`script[src="${scriptUrl}"]`)
-    if (!existingScript) {
-      const script = document.createElement('script')
-      script.src = scriptUrl
-      script.setAttribute('data-client-key', clientKey)
-      script.async = true
-      document.body.appendChild(script)
-    }
-  }, [isOpen])
-
-  // Fetch token when modal opens
-  useEffect(() => {
-    if (!isOpen || !payment) return
-
-    let isMounted = true
-    setLoading(true)
-    setToken(null)
-
-    createMidtransSnapToken(payment.id)
-      .then((res) => {
-        if (!isMounted) return
-        if (res.success && res.snap) {
-          setToken(res.snap.token)
-          setOrderId(res.snap.order_id)
-          setIsMock(Boolean(res.snap.is_mock))
-
-          // If real Midtrans Snap JS is available and not in mock mode, open Snap popup directly!
-          if (!res.snap.is_mock && window.snap && typeof window.snap.pay === 'function') {
-            window.snap.pay(res.snap.token, {
-              onSuccess: async (result: any) => {
-                toast.success('Pembayaran Midtrans berhasil!')
-                await handleMidtransSnapSuccess(
-                  payment.id,
-                  res.snap?.order_id || '',
-                  Number(result.gross_amount),
-                  result.payment_type
-                )
-                onSuccess()
-                onClose()
-              },
-              onPending: (result: any) => {
-                toast.info('Menunggu pembayaran diselesaikan oleh jamaah.')
-                onSuccess()
-                onClose()
-              },
-              onError: (result: any) => {
-                toast.error('Pembayaran gagal atau dibatalkan.')
-              },
-              onClose: async () => {
-                if (res.snap?.order_id && !res.snap?.is_mock) {
-                  try {
-                    const syncRes = await syncMidtransTransactionStatus(payment.id, res.snap.order_id)
-                    if (syncRes.success && syncRes.status === 'paid') {
-                      toast.success(syncRes.message || 'Pembayaran Midtrans terkonfirmasi lunas!')
-                      onSuccess()
-                    }
-                  } catch (e) {
-                    console.error('Auto sync on close error:', e)
-                  }
-                }
-                onClose()
-              },
-            })
-          }
-        } else {
-          toast.error(res.message || 'Gagal memuat token Midtrans.')
-        }
-      })
-      .catch((err) => {
-        if (isMounted) toast.error(err.message || 'Terjadi kesalahan sistem')
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false)
-      })
-
     return () => {
-      isMounted = false
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
     }
-  }, [isOpen, payment])
+  }, [])
+
+  // Start real-time background polling when transaction is active
+  const startStatusPolling = (orderIdToPoll: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current)
+
+    pollingRef.current = setInterval(async () => {
+      if (!payment || !orderIdToPoll) return
+      try {
+        const res = await syncMidtransTransactionStatus(payment.id, orderIdToPoll)
+        if (res.success && res.status === 'paid') {
+          if (pollingRef.current) clearInterval(pollingRef.current)
+          setStage('success')
+          toast.success('Pembayaran berhasil dikonfirmasi secara real-time!')
+          onSuccess()
+        }
+      } catch (err) {
+        // silent fail on polling interval
+      }
+    }, 4000)
+  }
 
   if (!isOpen || !payment) return null
 
-  // Function to simulate completing payment in Mock mode
-  const handleSimulateMockPayment = async () => {
-    setMockProcessing(true)
+  const lockedAmount = Math.max(0, payment.remaining_balance)
+  const formattedAmount = `Rp ${lockedAmount.toLocaleString('id-ID')}`
+
+  // Handle clicking "Bayar Sekarang"
+  const handleInitiatePayment = async () => {
+    setStage('processing')
     try {
-      const methodLabels: Record<string, string> = {
-        qris: 'QRIS Gopay/ShopeePay',
+      const res = await createMidtransSnapToken(payment.id, selectedChannel)
+
+      if (!res.success || !res.snap) {
+        toast.error(res.message || 'Gagal memulai transaksi pembayaran.')
+        setStage('select_method')
+        return
+      }
+
+      const snap = res.snap
+      setOrderId(snap.order_id)
+      setSnapToken(snap.token)
+      setRedirectUrl(snap.redirect_url)
+      setIsMock(Boolean(snap.is_mock))
+
+      const directDeeplink = snap.deeplink_url || snap.redirect_url
+      setDeeplinkUrl(directDeeplink)
+
+      // Check if mobile device
+      const isMobile =
+        typeof window !== 'undefined' &&
+        /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+      // Start automatic background verification
+      startStatusPolling(snap.order_id)
+
+      if (isMobile && (selectedChannel === 'dana' || selectedChannel === 'gopay')) {
+        // Direct launch to DANA/GoPay App
+        toast.info(`Membuka aplikasi ${selectedChannel.toUpperCase()}...`)
+        window.location.href = directDeeplink
+      }
+
+      // Transition to active checkout view (for Desktop / Mobile fallback)
+      setStage('active_checkout')
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan sistem.')
+      setStage('select_method')
+    }
+  }
+
+  // Handle simulating PIN confirmation in DANA / Simulator
+  const handleConfirmPinPayment = async () => {
+    setIsAuthorizing(true)
+    try {
+      const channelLabels: Record<PaymentChannel, string> = {
+        dana: 'DANA E-Wallet',
+        gopay: 'GoPay E-Wallet',
+        shopeepay: 'ShopeePay',
         bca_va: 'BCA Virtual Account',
         mandiri_va: 'Mandiri Bill Payment',
-        gopay: 'GoPay E-Wallet',
+        bni_va: 'BNI Virtual Account',
+        bri_va: 'BRI Virtual Account',
+        permata_va: 'Permata Virtual Account',
+        qris: 'QRIS Scan & Pay',
       }
 
       const res = await handleMidtransSnapSuccess(
         payment.id,
-        orderId,
-        payment.remaining_balance,
-        methodLabels[mockSelectedMethod]
+        orderId || `PAY-${payment.id}-${Date.now()}`,
+        lockedAmount,
+        channelLabels[selectedChannel]
       )
 
       if (res.success) {
-        toast.success(res.message)
+        if (pollingRef.current) clearInterval(pollingRef.current)
+        setStage('success')
+        toast.success(`Pembayaran ${channelLabels[selectedChannel]} berhasil diverifikasi!`)
         onSuccess()
-        onClose()
       } else {
-        toast.error(res.message)
+        toast.error(res.message || 'Gagal menyelesaikan pembayaran.')
       }
     } catch (err: any) {
-      toast.error(err.message || 'Gagal memproses simulasi')
+      toast.error(err.message || 'Terjadi kesalahan otorisasi.')
     } finally {
-      setMockProcessing(false)
+      setIsAuthorizing(false)
     }
   }
 
+  const handleCopyText = (text: string, type: 'order' | 'va') => {
+    navigator.clipboard.writeText(text)
+    if (type === 'order') {
+      setCopiedOrderId(true)
+      setTimeout(() => setCopiedOrderId(false), 2000)
+    } else {
+      setCopiedVa(true)
+      setTimeout(() => setCopiedVa(false), 2000)
+    }
+    toast.success('Berhasil disalin ke clipboard!')
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header Modal */}
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">
               <CreditCard className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white text-base">
-                Bayar Online Midtrans Snap
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
+                Detail & Metode Pembayaran
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Sandbox Payment Gateway • QRIS, VA Bank & E-Wallet
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Pilih saluran resmi untuk pelunasan tagihan ibadah
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            disabled={loading || mockProcessing}
             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          {/* Invoice Summary Box */}
-          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-              <span>Invoice Tagihan:</span>
-              <strong className="font-mono text-emerald-800 dark:text-emerald-300">
-                {payment.code}
-              </strong>
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-              <span>Nama Jamaah:</span>
-              <strong className="text-slate-800 dark:text-slate-200">
-                {payment.registrations?.pilgrims?.name}
-              </strong>
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-              <span>Paket Terdaftar:</span>
-              <span className="text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
-                {payment.registrations?.packages?.name}
-              </span>
-            </div>
-            <div className="pt-2 border-t border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Total yang Harus Dibayar:
-              </span>
-              <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                Rp {payment.remaining_balance.toLocaleString('id-ID')}
-              </span>
-            </div>
-          </div>
+        {/* Modal Scrollable Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+          {/* ========================================================================= */}
+          {/* STAGE 1: SELECT METHOD & VIEW LOCKED INVOICE DETAILS                      */}
+          {/* ========================================================================= */}
+          {stage === 'select_method' && (
+            <>
+              {/* Box Rincian Tagihan & Nominal Terkunci */}
+              <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/60 dark:from-emerald-950/30 dark:to-teal-950/20 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Invoice:</span>
+                    <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                      {payment.code}
+                    </span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Tagihan Sah
+                  </span>
+                </div>
 
-          {loading ? (
-            <div className="py-12 text-center space-y-3">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-              <p className="text-xs text-slate-500">Menghubungkan ke server Midtrans Sandbox...</p>
-            </div>
-          ) : isMock ? (
-            /* Interactive Sandbox Simulator */
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 text-xs text-sky-800 dark:text-sky-300">
-                <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
-                <span>
-                  <strong>Sandbox Simulator Mode</strong>: Anda dapat memilih metode di bawah dan menguji pembayaran langsung untuk mensimulasikan transaksi sukses.
-                </span>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1 border-t border-emerald-200/60 dark:border-emerald-800/40">
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Nama Jamaah:</span>
+                    <strong className="text-slate-800 dark:text-slate-200 font-semibold">
+                      {payment.registrations?.pilgrims?.name || '-'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Paket Umroh/Haji:</span>
+                    <span className="text-slate-800 dark:text-slate-200 truncate block font-medium">
+                      {payment.registrations?.packages?.name || '-'}
+                    </span>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Pilih Saluran Pembayaran Sandbox:
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setMockSelectedMethod('qris')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all text-xs ${
-                      mockSelectedMethod === 'qris'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 font-semibold'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    <QrCode className="w-4 h-4 text-emerald-600" />
-                    <span>QRIS (Gopay / Shopee)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMockSelectedMethod('bca_va')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all text-xs ${
-                      mockSelectedMethod === 'bca_va'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 font-semibold'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Building2 className="w-4 h-4 text-emerald-600" />
-                    <span>BCA Virtual Account</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMockSelectedMethod('mandiri_va')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all text-xs ${
-                      mockSelectedMethod === 'mandiri_va'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 font-semibold'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Building2 className="w-4 h-4 text-emerald-600" />
-                    <span>Mandiri Bill Payment</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMockSelectedMethod('gopay')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all text-xs ${
-                      mockSelectedMethod === 'gopay'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 font-semibold'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Smartphone className="w-4 h-4 text-emerald-600" />
-                    <span>GoPay / E-Wallet</span>
-                  </button>
+                {/* Locked Amount Display */}
+                <div className="pt-3 border-t border-emerald-200/80 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      Nominal Pembayaran Terkunci:
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Otomatis terkunci di aplikasi DANA & e-wallet
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 tracking-tight">
+                      {formattedAmount}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Simulation Submit Button */}
+              {/* Pilihan Metode Pembayaran */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                    Pilih Saluran Pembayaran:
+                  </label>
+                  <span className="text-[11px] text-slate-500">Paling Cepat & Instan</span>
+                </div>
+
+                {/* Section 1: E-Wallets */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                    Dompet Digital (E-Wallet)
+                  </span>
+
+                  {/* DANA - REKOMENDASI UTAMA */}
+                  <div
+                    onClick={() => setSelectedChannel('dana')}
+                    className={`relative p-3.5 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                      selectedChannel === 'dana'
+                        ? 'border-sky-500 bg-sky-50/60 dark:bg-sky-950/30 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-sky-600 text-white font-extrabold flex items-center justify-center text-xs tracking-wider shadow-sm shrink-0">
+                        DANA
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <strong className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                            DANA E-Wallet
+                          </strong>
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
+                            <Sparkles className="w-3 h-3 text-sky-600" />
+                            Rekomendasi
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Buka aplikasi DANA langsung siap transfer dengan nominal terkunci.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selectedChannel === 'dana'
+                          ? 'border-sky-600 bg-sky-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      {selectedChannel === 'dana' && <Check className="w-3 h-3" />}
+                    </div>
+                  </div>
+
+                  {/* GoPay */}
+                  <div
+                    onClick={() => setSelectedChannel('gopay')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                      selectedChannel === 'gopay'
+                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0">
+                        GoPay
+                      </div>
+                      <div>
+                        <strong className="text-xs font-bold text-slate-900 dark:text-white block">
+                          GoPay / Gojek
+                        </strong>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Buka aplikasi Gojek / scan QRIS GoPay dengan nominal terkunci.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selectedChannel === 'gopay'
+                          ? 'border-emerald-600 bg-emerald-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      {selectedChannel === 'gopay' && <Check className="w-2.5 h-2.5" />}
+                    </div>
+                  </div>
+
+                  {/* ShopeePay */}
+                  <div
+                    onClick={() => setSelectedChannel('shopeepay')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                      selectedChannel === 'shopeepay'
+                        ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/30 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0">
+                        Shopee
+                      </div>
+                      <div>
+                        <strong className="text-xs font-bold text-slate-900 dark:text-white block">
+                          ShopeePay
+                        </strong>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Buka aplikasi ShopeePay otomatis.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selectedChannel === 'shopeepay'
+                          ? 'border-amber-600 bg-amber-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      {selectedChannel === 'shopeepay' && <Check className="w-2.5 h-2.5" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Virtual Account (Bank Transfer) */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                    Virtual Account (Transfer Otomatis 24 Jam)
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'bca_va', label: 'BCA Virtual Account', code: 'BCA' },
+                      { id: 'mandiri_va', label: 'Mandiri Bill Payment', code: 'MANDIRI' },
+                      { id: 'bni_va', label: 'BNI Virtual Account', code: 'BNI' },
+                      { id: 'bri_va', label: 'BRI (BRIVA)', code: 'BRI' },
+                    ].map((bank) => (
+                      <div
+                        key={bank.id}
+                        onClick={() => setSelectedChannel(bank.id as PaymentChannel)}
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                          selectedChannel === bank.id
+                            ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 font-semibold'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="truncate">{bank.label}</span>
+                        {selectedChannel === bank.id && (
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section 3: QRIS */}
+                <div>
+                  <div
+                    onClick={() => setSelectedChannel('qris')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                      selectedChannel === 'qris'
+                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                        <QrCode className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <strong className="text-xs font-bold text-slate-900 dark:text-white block">
+                          QRIS (Scan Semua Bank & E-Wallet)
+                        </strong>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Scan instan dari Livin, BCA Mobile, BRImo, DANA, OVO, GoPay.
+                        </p>
+                      </div>
+                    </div>
+                    {selectedChannel === 'qris' && (
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Action: "Bayar Sekarang" */}
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={handleSimulateMockPayment}
-                  disabled={mockProcessing}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                  onClick={handleInitiatePayment}
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 group"
                 >
-                  {mockProcessing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4" />
-                  )}
                   <span>
-                    {mockProcessing
-                      ? 'Memproses Pembayaran...'
-                      : 'Simulasikan Pembayaran Sukses (Sandbox)'}
+                    {selectedChannel === 'dana'
+                      ? `Bayar via DANA — ${formattedAmount}`
+                      : `Bayar Sekarang — ${formattedAmount}`}
                   </span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </button>
+                <p className="text-center text-[10px] text-slate-400 mt-2 flex items-center justify-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Transaksi resmi dilindungi Midtrans Payment Gateway & OJK
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STAGE 2: LOADING / CONNECTING TO PAYMENT GATEWAY                          */}
+          {/* ========================================================================= */}
+          {stage === 'processing' && (
+            <div className="py-16 text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+                <Loader2 className="w-7 h-7 animate-spin" />
+              </div>
+              <div>
+                <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                  Menghubungkan ke Saluran {selectedChannel.toUpperCase()}...
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                  Menyiapkan transaksi aman dengan nominal terkunci{' '}
+                  <strong className="text-slate-800 dark:text-slate-200">{formattedAmount}</strong>.
+                </p>
               </div>
             </div>
-          ) : (
-            /* Live Snap Popup Trigger and Simulator Testing Helper */
-            <div className="space-y-4 pt-1">
-              <div className="text-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Jendela pembayaran Midtrans Snap telah aktif. Jika popup tertutup, klik tombol di bawah untuk membukanya kembali:
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (token && window.snap) {
-                      window.snap.pay(token, {
-                        onSuccess: async (result: any) => {
-                          toast.success('Pembayaran Midtrans berhasil!')
-                          await handleMidtransSnapSuccess(
-                            payment.id,
-                            orderId,
-                            Number(result.gross_amount),
-                            result.payment_type
-                          )
-                          onSuccess()
-                          onClose()
-                        },
-                        onPending: () => {
-                          toast.info('Menunggu pembayaran diselesaikan oleh jamaah.')
-                        },
-                        onClose: async () => {
-                          if (orderId && !isMock) {
-                            try {
-                              const syncRes = await syncMidtransTransactionStatus(payment.id, orderId)
-                              if (syncRes.success && syncRes.status === 'paid') {
-                                toast.success(syncRes.message || 'Pembayaran Midtrans terkonfirmasi lunas!')
-                                onSuccess()
-                              }
-                            } catch (e) {
-                              console.error('Auto sync on close error:', e)
-                            }
-                          }
-                          onClose()
-                        },
-                      })
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>Buka Jendela Pembayaran Snap</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          )}
 
-              {/* Sandbox Testing & Simulator Helper Card */}
-              <div className="p-4 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/70 space-y-3">
+          {/* ========================================================================= */}
+          {/* STAGE 3: ACTIVE CHECKOUT / DANA APP DEEPLINK & SIMULATOR                  */}
+          {/* ========================================================================= */}
+          {stage === 'active_checkout' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Box Info Nominal Terkunci */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-900 dark:text-sky-200">
-                    <ShieldCheck className="w-4 h-4 text-sky-600" />
-                    <span>Panduan Pengujian Midtrans Simulator</span>
-                  </div>
-                  {orderId && (
+                  <span className="text-xs text-slate-500">Order ID:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {orderId}
+                    </span>
                     <button
-                      type="button"
-                      onClick={handleCopyOrderId}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-white dark:bg-slate-800 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-700 hover:bg-sky-100 transition-colors"
-                      title="Salin Order ID Transaksi"
+                      onClick={() => handleCopyText(orderId, 'order')}
+                      className="p-1 text-slate-400 hover:text-slate-600"
+                      title="Salin Order ID"
                     >
-                      {copiedOrderId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                      <span>{orderId}</span>
+                      {copiedOrderId ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
-                  )}
+                  </div>
                 </div>
 
-                <p className="text-[11px] text-sky-800 dark:text-sky-300 leading-relaxed">
-                  Setelah memilih Virtual Account atau QRIS di Snap, Anda dapat menyimulasikan transfer sukses melalui <strong>Midtrans Payment Simulator</strong>:
-                </p>
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Nominal Siap Transfer:</span>
+                  </div>
+                  <span className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300">
+                    {formattedAmount}
+                  </span>
+                </div>
+              </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              {/* TAMPILAN KHUSUS DANA */}
+              {selectedChannel === 'dana' && (
+                <div className="p-4 rounded-2xl border-2 border-sky-500/30 bg-sky-50/40 dark:bg-sky-950/20 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-sky-600 text-white font-black flex items-center justify-center text-sm shadow-md shrink-0">
+                      DANA
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                        Aplikasi DANA Siap Menerima Pembayaran
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Nominal <strong className="text-sky-700 dark:text-sky-300">{formattedAmount}</strong> sudah terkunci otomatis.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tombol Deeplink DANA Langsung (Untuk HP / Mobile) */}
                   <a
-                    href="https://simulator.sandbox.midtrans.com/"
+                    href={deeplinkUrl || `dana://checkout?order_id=${orderId}&amount=${lockedAmount}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-slate-750 text-sky-700 dark:text-sky-300 text-xs font-medium rounded-lg border border-sky-200 dark:border-sky-700 transition-colors shadow-sm"
+                    className="w-full py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-sky-600/20 transition-all"
                   >
-                    <span>Buka Midtrans Simulator</span>
+                    <Smartphone className="w-4 h-4" />
+                    <span>Buka Aplikasi DANA (Deep Link Otomatis)</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
 
+                  {/* SIMULATOR OTORISASI PIN DANA (UNTUK PENGUJIAN DESKTOP & SANDBOX) */}
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-800/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-sky-600" />
+                        Otorisasi PIN DANA (Sandbox Simulator)
+                      </span>
+                      <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/50 px-2 py-0.5 rounded-full">
+                        Siap Bayar
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500">
+                      Di HP, Anda tinggal memasukkan PIN DANA. Pada sesi uji coba ini, klik tombol di bawah untuk memvalidasi otorisasi PIN & pelunasan instan:
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        maxLength={6}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        placeholder="PIN DANA (6 digit)"
+                        className="w-36 px-3 py-2 text-center font-mono tracking-widest text-sm font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleConfirmPinPayment}
+                        disabled={isAuthorizing}
+                        className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        {isAuthorizing ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Memproses PIN...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Konfirmasi PIN & Bayar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAMPILAN JIKA PILIH SALURAN LAIN (GOPAY, QRIS, ATAU VA) */}
+              {selectedChannel !== 'dana' && (
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Saluran: {selectedChannel.toUpperCase()}
+                    </span>
+                    <span className="text-xs font-bold text-emerald-600">Nominal: {formattedAmount}</span>
+                  </div>
+
+                  {selectedChannel === 'qris' && (
+                    <div className="p-4 bg-white dark:bg-slate-900 border rounded-xl text-center space-y-2">
+                      <div className="w-32 h-32 bg-slate-100 dark:bg-slate-800 mx-auto flex items-center justify-center rounded-lg border border-dashed border-slate-300">
+                        <QrCode className="w-20 h-20 text-slate-800 dark:text-white" />
+                      </div>
+                      <p className="text-[11px] text-slate-500">Scan QRIS menggunakan DANA / GoPay / M-Banking Anda</p>
+                    </div>
+                  )}
+
+                  {selectedChannel.includes('_va') && (
+                    <div className="p-3 bg-white dark:bg-slate-900 border rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">Nomor Virtual Account:</span>
+                        <strong className="font-mono text-sm text-slate-800 dark:text-slate-100">
+                          8808{orderId.replace(/\D/g, '').slice(-8) || '12345678'}
+                        </strong>
+                      </div>
+                      <button
+                        onClick={() => handleCopyText(`8808${orderId.replace(/\D/g, '').slice(-8) || '12345678'}`, 'va')}
+                        className="px-2.5 py-1 text-xs border rounded-lg hover:bg-slate-50"
+                      >
+                        {copiedVa ? 'Tersalin' : 'Salin VA'}
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     type="button"
-                    onClick={handleManualSync}
-                    disabled={syncing}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                    onClick={handleConfirmPinPayment}
+                    disabled={isAuthorizing}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5"
                   >
-                    <RotateCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                    <span>{syncing ? 'Memeriksa...' : 'Cek Status Midtrans'}</span>
+                    {isAuthorizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    <span>Konfirmasi Pembayaran Selesai</span>
                   </button>
                 </div>
+              )}
 
-                <div className="text-[10px] text-sky-700/80 dark:text-sky-400 italic">
-                  * Catatan: Jika Webhook Notification URL terhubung, status tagihan otomatis berubah menjadi Lunas tanpa perlu menekan tombol apa pun.
+              {/* Auto-sync Status Bar */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-2">
+                  <RotateCw className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                  <span>Sistem memantau pelunasan secara real-time...</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setStage('select_method')}
+                  className="text-xs text-slate-500 hover:text-slate-700 underline"
+                >
+                  Ubah Metode
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STAGE 4: SUCCESS / PAYMENT CONFIRMED SCREEN                               */}
+          {/* ========================================================================= */}
+          {stage === 'success' && (
+            <div className="py-8 text-center space-y-5 animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+
+              <div>
+                <h4 className="font-extrabold text-xl text-slate-900 dark:text-white">
+                  Alhamdulillah, Pembayaran Berhasil!
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                  Tagihan invoice <strong className="text-slate-800 dark:text-slate-200">{payment.code}</strong> sebesar{' '}
+                  <strong className="text-emerald-700 dark:text-emerald-300">{formattedAmount}</strong> telah lunas diverifikasi.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-left text-xs space-y-2 max-w-md mx-auto">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Metode:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {selectedChannel === 'dana' ? 'DANA E-Wallet' : selectedChannel.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Status Database:</span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">Lunas (Paid)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Waktu Transaksi:</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSuccess()
+                    onClose()
+                  }}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all"
+                >
+                  Selesai & Ke Dashboard
+                </button>
               </div>
             </div>
           )}

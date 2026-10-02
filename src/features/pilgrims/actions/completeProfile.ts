@@ -92,16 +92,53 @@ export async function completePilgrimProfile(
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' }
     }
 
-    // Validasi NIK 16 digit
-    const cleanNik = data.nik.replace(/\D/g, '')
-    if (cleanNik.length !== 16) {
-      return { success: false, error: 'Nomor NIK KTP harus tepat 16 digit angka.' }
+        // STRICT VALIDATION: ALL FIELDS MANDATORY
+    if (!data.name || !data.name.trim()) {
+      return { success: false, error: 'Nama Lengkap sesuai KTP wajib diisi.' }
     }
 
-    // Validasi No Telepon
-    const cleanPhone = data.phone.trim()
-    if (cleanPhone.length < 10) {
-      return { success: false, error: 'Nomor WhatsApp / Telepon tidak valid.' }
+    const cleanPhone = (data.phone || '').trim()
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return { success: false, error: 'Nomor WhatsApp / Handphone wajib diisi minimal 10 digit.' }
+    }
+
+    const cleanNik = (data.nik || '').replace(/\D/g, '')
+    if (cleanNik.length !== 16) {
+      return { success: false, error: 'Nomor NIK KTP wajib tepat 16 digit angka.' }
+    }
+
+    if (!data.birth_place || !data.birth_place.trim()) {
+      return { success: false, error: 'Tempat Lahir wajib diisi.' }
+    }
+
+    if (!data.birth_date) {
+      return { success: false, error: 'Tanggal Lahir wajib diisi.' }
+    }
+
+    if (!data.address || !data.address.trim()) {
+      return { success: false, error: 'Alamat domisili lengkap wajib diisi.' }
+    }
+
+    if (!data.branch_id) {
+      return { success: false, error: 'Pilih salah satu kantor cabang pendaftaran.' }
+    }
+
+    const cleanPassport = (data.passport_number || '').trim()
+    if (!cleanPassport) {
+      return { success: false, error: 'Nomor Paspor wajib diisi.' }
+    }
+
+    if (!data.passport_expiry) {
+      return { success: false, error: 'Masa berlaku paspor wajib diisi.' }
+    }
+
+    if (!data.emergency_contact_name || !data.emergency_contact_name.trim()) {
+      return { success: false, error: 'Nama kontak darurat keluarga wajib diisi.' }
+    }
+
+    const cleanEmerPhone = (data.emergency_contact_phone || '').trim()
+    if (!cleanEmerPhone || cleanEmerPhone.length < 10) {
+      return { success: false, error: 'Nomor telepon kontak darurat wajib diisi minimal 10 digit.' }
     }
 
     const adminSupabase = createAdminClient() as any
