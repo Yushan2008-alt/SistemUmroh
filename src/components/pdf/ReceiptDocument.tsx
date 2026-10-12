@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Font,
 } from '@react-pdf/renderer'
-import { terbilang, formatRupiah } from '@/features/payments/utils/terbilang'
+import { terbilang, formatRupiah } from '@/modules/finance/terbilang'
 
 // A5 Landscape dimensions: 595.28 x 419.53 pt
 const styles = StyleSheet.create({

@@ -1,6 +1,6 @@
-import { getPayments, getPaymentStats } from '@/features/payments/actions'
-import { PaymentsFilter } from '@/features/payments/components/PaymentsFilter'
-import { PaymentsTable } from '@/features/payments/components/PaymentsTable'
+import { getPayments, getPaymentStats } from '@/modules/finance'
+import { PaymentsFilter } from '@/modules/finance'
+import { PaymentsTable } from '@/modules/finance'
 import {
   CreditCard,
   Banknote,

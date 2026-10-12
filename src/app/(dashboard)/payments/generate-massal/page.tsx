@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { MassInstallmentForm } from '@/features/payments/components/MassInstallmentForm'
+import { MassInstallmentForm } from '@/modules/finance'
 
 export const metadata = {
   title: 'Generate Tagihan Massal | Travel Umroh & Haji',

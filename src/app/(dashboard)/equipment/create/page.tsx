@@ -1,5 +1,5 @@
-import { getEquipmentFormData } from '@/features/equipment/actions'
-import { EquipmentForm } from '@/features/equipment/components/EquipmentForm'
+import { getEquipmentFormData } from '@/modules/operations'
+import { EquipmentForm } from '@/modules/operations'
 
 export const metadata = {
   title: 'Catat Perlengkapan Baru | Sistem Manajemen Umroh & Haji',

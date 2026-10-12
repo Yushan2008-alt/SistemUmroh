@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getPackageManifest } from '@/features/manifests/actions'
-import { ManifestEditor } from '@/features/manifests/components/ManifestEditor'
+import { getPackageManifest } from '@/modules/operations'
+import { ManifestEditor } from '@/modules/operations'
 
 interface ManifestDetailPageProps {
   params: Promise<{ id: string }>

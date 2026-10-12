@@ -1,5 +1,5 @@
-import { getBranches } from '@/features/branches/actions'
-import { BranchesTable } from '@/features/branches/components/BranchesTable'
+import { getBranches } from '@/modules/system'
+import { BranchesTable } from '@/modules/system'
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>

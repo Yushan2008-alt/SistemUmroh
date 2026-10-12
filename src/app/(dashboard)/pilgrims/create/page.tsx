@@ -1,5 +1,5 @@
-import { getPilgrimFormData } from '@/features/pilgrims/actions'
-import { PilgrimForm } from '@/features/pilgrims/components/PilgrimForm'
+import { getPilgrimFormData } from '@/modules/pilgrims'
+import { PilgrimForm } from '@/modules/pilgrims'
 
 export const metadata = {
   title: 'Tambah Jamaah Baru | Sistem Manajemen Umroh & Haji',

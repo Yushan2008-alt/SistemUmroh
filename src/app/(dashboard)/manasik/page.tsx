@@ -1,5 +1,5 @@
-import { getManasikSchedules } from '@/features/manasik/actions'
-import { ManasikTable } from '@/features/manasik/components/ManasikTable'
+import { getManasikSchedules } from '@/modules/pilgrims'
+import { ManasikTable } from '@/modules/pilgrims'
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>

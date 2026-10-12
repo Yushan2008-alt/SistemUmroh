@@ -25,7 +25,7 @@ import {
   getCompleteProfileInitialData,
   completePilgrimProfile,
   type CompleteProfileInput,
-} from '@/features/pilgrims/actions/completeProfile'
+} from '@/modules/pilgrims'
 import { createClient } from '@/lib/supabase/client'
 import type { Gender } from '@/types/database.types'
 

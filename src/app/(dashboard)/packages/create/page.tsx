@@ -1,5 +1,5 @@
-import { getPackageFormData } from '@/features/packages/actions'
-import { PackageForm } from '@/features/packages/components/PackageForm'
+import { getPackageFormData } from '@/modules/operations'
+import { PackageForm } from '@/modules/operations'
 
 export const metadata = {
   title: 'Buat Paket Baru | Sistem Manajemen Umroh & Haji',

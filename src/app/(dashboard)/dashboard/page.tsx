@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import { StaffDashboard } from '@/features/dashboard/components/StaffDashboard'
-import { AgentDashboard } from '@/features/dashboard/components/AgentDashboard'
-import { PilgrimDashboard } from '@/features/dashboard/components/PilgrimDashboard'
-import { GuideDashboard } from '@/features/dashboard/components/GuideDashboard'
+import { StaffDashboard } from '@/modules/system'
+import { AgentDashboard } from '@/modules/system'
+import { PilgrimDashboard } from '@/modules/system'
+import { GuideDashboard } from '@/modules/system'
 import type { Role } from '@/types/database.types'
 
 export const metadata = {

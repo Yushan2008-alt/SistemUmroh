@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getAnnouncements } from '@/features/announcements/actions'
-import { AnnouncementList } from '@/features/announcements/components/AnnouncementList'
+import { getAnnouncements } from '@/modules/system'
+import { AnnouncementList } from '@/modules/system'
 
 export const metadata = {
   title: 'Pengumuman | Sistem Manajemen Umroh & Haji',

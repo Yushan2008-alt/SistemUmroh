@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getEquipmentById, getEquipmentFormData } from '@/features/equipment/actions'
-import { EquipmentForm } from '@/features/equipment/components/EquipmentForm'
+import { getEquipmentById, getEquipmentFormData } from '@/modules/operations'
+import { EquipmentForm } from '@/modules/operations'
 
 interface EditEquipmentPageProps {
   params: Promise<{ id: string }>

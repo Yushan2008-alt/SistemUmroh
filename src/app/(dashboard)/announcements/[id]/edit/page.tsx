@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getAnnouncementById, getAnnouncementFormOptions } from '@/features/announcements/actions'
-import { AnnouncementForm } from '@/features/announcements/components/AnnouncementForm'
+import { getAnnouncementById, getAnnouncementFormOptions } from '@/modules/system'
+import { AnnouncementForm } from '@/modules/system'
 
 interface EditAnnouncementPageProps {
   params: Promise<{ id: string }>

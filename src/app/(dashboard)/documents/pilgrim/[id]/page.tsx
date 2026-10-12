@@ -1,5 +1,5 @@
-import { getPilgrimDocuments } from '@/features/documents/actions'
-import { PilgrimDocumentList } from '@/features/documents/components/PilgrimDocumentList'
+import { getPilgrimDocuments } from '@/modules/pilgrims'
+import { PilgrimDocumentList } from '@/modules/pilgrims'
 import { ArrowLeft, UserX } from 'lucide-react'
 import Link from 'next/navigation'
 

@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getSettings } from '@/features/settings/actions'
-import { SettingsForm } from '@/features/settings/components/SettingsForm'
+import { getSettings } from '@/modules/system'
+import { SettingsForm } from '@/modules/system'
 
 export const metadata = {
   title: 'Pengaturan Sistem | Sistem Manajemen Umroh & Haji',

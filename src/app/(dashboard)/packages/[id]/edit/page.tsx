@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getPackageById, getPackageFormData } from '@/features/packages/actions'
-import { PackageForm } from '@/features/packages/components/PackageForm'
+import { getPackageById, getPackageFormData } from '@/modules/operations'
+import { PackageForm } from '@/modules/operations'
 
 interface EditPackagePageProps {
   params: Promise<{ id: string }>

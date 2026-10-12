@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getAnnouncementFormOptions } from '@/features/announcements/actions'
-import { AnnouncementForm } from '@/features/announcements/components/AnnouncementForm'
+import { getAnnouncementFormOptions } from '@/modules/system'
+import { AnnouncementForm } from '@/modules/system'
 
 export const metadata = {
   title: 'Tambah Pengumuman | Sistem Manajemen Umroh & Haji',

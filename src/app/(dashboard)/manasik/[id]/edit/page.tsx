@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getManasikScheduleById, getManasikFormData } from '@/features/manasik/actions'
-import { ManasikForm } from '@/features/manasik/components/ManasikForm'
+import { getManasikScheduleById, getManasikFormData } from '@/modules/pilgrims'
+import { ManasikForm } from '@/modules/pilgrims'
 
 interface EditManasikPageProps {
   params: Promise<{ id: string }>

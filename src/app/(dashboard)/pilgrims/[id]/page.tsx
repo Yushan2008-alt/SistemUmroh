@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getPilgrimById } from '@/features/pilgrims/actions'
-import { PilgrimDetailView } from '@/features/pilgrims/components/PilgrimDetailView'
+import { getPilgrimById } from '@/modules/pilgrims'
+import { PilgrimDetailView } from '@/modules/pilgrims'
 
 interface PilgrimDetailPageProps {
   params: Promise<{ id: string }>

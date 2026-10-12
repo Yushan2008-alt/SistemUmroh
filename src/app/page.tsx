@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatRupiah } from '@/features/payments/utils/terbilang'
+import { formatRupiah } from '@/modules/finance/terbilang'
 
 const ACTIVE_PACKAGES = [
   {

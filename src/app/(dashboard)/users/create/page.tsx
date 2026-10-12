@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getUserFormOptions } from '@/features/users/actions'
-import { UserForm } from '@/features/users/components/UserForm'
+import { getUserFormOptions } from '@/modules/system'
+import { UserForm } from '@/modules/system'
 
 export const metadata = {
   title: 'Tambah Pengguna | Sistem Manajemen Umroh & Haji',

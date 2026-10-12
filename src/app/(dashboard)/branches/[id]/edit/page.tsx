@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getBranchById } from '@/features/branches/actions'
-import { BranchForm } from '@/features/branches/components/BranchForm'
+import { getBranchById } from '@/modules/system'
+import { BranchForm } from '@/modules/system'
 
 interface EditBranchPageProps {
   params: Promise<{ id: string }>

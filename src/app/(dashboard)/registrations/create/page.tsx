@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { getBookingFormOptions } from '@/features/registrations/actions'
-import { RegistrationForm } from '@/features/registrations/components/RegistrationForm'
+import { getBookingFormOptions } from '@/modules/pilgrims'
+import { RegistrationForm } from '@/modules/pilgrims'
 import { ArrowLeft } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'

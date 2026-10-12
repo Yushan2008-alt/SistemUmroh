@@ -1,5 +1,5 @@
-import { getGuides, getAvailableBranches } from '@/features/guides/actions'
-import { GuidesTable } from '@/features/guides/components/GuidesTable'
+import { getGuides, getAvailableBranches } from '@/modules/system'
+import { GuidesTable } from '@/modules/system'
 
 interface PageProps {
   searchParams: Promise<{ q?: string; branch?: string }>

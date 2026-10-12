@@ -1,5 +1,5 @@
-import { getBankAccounts, getAvailableBranches } from '@/features/bank-accounts/actions'
-import { BankAccountsTable } from '@/features/bank-accounts/components/BankAccountsTable'
+import { getBankAccounts, getAvailableBranches } from '@/modules/finance'
+import { BankAccountsTable } from '@/modules/finance'
 
 interface PageProps {
   searchParams: Promise<{ q?: string; branch?: string }>

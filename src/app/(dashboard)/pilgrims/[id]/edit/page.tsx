@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getPilgrimById, getPilgrimFormData } from '@/features/pilgrims/actions'
-import { PilgrimForm } from '@/features/pilgrims/components/PilgrimForm'
+import { getPilgrimById, getPilgrimFormData } from '@/modules/pilgrims'
+import { PilgrimForm } from '@/modules/pilgrims'
 
 interface EditPilgrimPageProps {
   params: Promise<{ id: string }>

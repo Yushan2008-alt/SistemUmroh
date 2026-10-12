@@ -1,5 +1,5 @@
-import { getManasikFormData } from '@/features/manasik/actions'
-import { ManasikForm } from '@/features/manasik/components/ManasikForm'
+import { getManasikFormData } from '@/modules/pilgrims'
+import { ManasikForm } from '@/modules/pilgrims'
 
 export const metadata = {
   title: 'Tambah Jadwal Manasik | Sistem Manajemen Umroh & Haji',

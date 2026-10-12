@@ -1,5 +1,5 @@
-import { getHotels } from '@/features/hotels/actions'
-import { HotelsTable } from '@/features/hotels/components/HotelsTable'
+import { getHotels } from '@/modules/operations'
+import { HotelsTable } from '@/modules/operations'
 
 interface PageProps {
   searchParams: Promise<{ q?: string; city?: string }>

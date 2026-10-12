@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getPackageById } from '@/features/packages/actions'
-import { PackageDetailView } from '@/features/packages/components/PackageDetailView'
+import { getPackageById } from '@/modules/operations'
+import { PackageDetailView } from '@/modules/operations'
 
 interface PackageDetailPageProps {
   params: Promise<{ id: string }>

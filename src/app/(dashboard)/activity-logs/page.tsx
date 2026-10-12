@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getActivityLogs, getActivityLogFilters } from '@/features/activity-logs/actions'
-import { ActivityLogTable } from '@/features/activity-logs/components/ActivityLogTable'
+import { getActivityLogs, getActivityLogFilters } from '@/modules/system'
+import { ActivityLogTable } from '@/modules/system'
 
 export const metadata = {
   title: 'Log Aktivitas | Sistem Manajemen Umroh & Haji',

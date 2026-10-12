@@ -1,5 +1,5 @@
-import { getPilgrims } from '@/features/pilgrims/actions'
-import { PilgrimsTable } from '@/features/pilgrims/components/PilgrimsTable'
+import { getPilgrims } from '@/modules/pilgrims'
+import { PilgrimsTable } from '@/modules/pilgrims'
 
 interface PageProps {
   searchParams: Promise<{

@@ -1,5 +1,5 @@
-import { getAirlines } from '@/features/airlines/actions'
-import { AirlinesTable } from '@/features/airlines/components/AirlinesTable'
+import { getAirlines } from '@/modules/operations'
+import { AirlinesTable } from '@/modules/operations'
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>

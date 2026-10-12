@@ -1,5 +1,5 @@
-import { getManifestPackages } from '@/features/manifests/actions'
-import { ManifestsPackageTable } from '@/features/manifests/components/ManifestsPackageTable'
+import { getManifestPackages } from '@/modules/operations'
+import { ManifestsPackageTable } from '@/modules/operations'
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>

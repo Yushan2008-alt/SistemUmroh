@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getUserById, getUserFormOptions } from '@/features/users/actions'
-import { UserForm } from '@/features/users/components/UserForm'
+import { getUserById, getUserFormOptions } from '@/modules/system'
+import { UserForm } from '@/modules/system'
 
 interface EditUserPageProps {
   params: Promise<{ id: string }>

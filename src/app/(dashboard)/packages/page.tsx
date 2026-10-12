@@ -1,5 +1,5 @@
-import { getPackages } from '@/features/packages/actions'
-import { PackagesTable } from '@/features/packages/components/PackagesTable'
+import { getPackages } from '@/modules/operations'
+import { PackagesTable } from '@/modules/operations'
 
 interface PageProps {
   searchParams: Promise<{

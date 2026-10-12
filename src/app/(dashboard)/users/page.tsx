@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getUsers } from '@/features/users/actions'
-import { UserList } from '@/features/users/components/UserList'
+import { getUsers } from '@/modules/system'
+import { UserList } from '@/modules/system'
 
 export const metadata = {
   title: 'Kelola Pengguna | Sistem Manajemen Umroh & Haji',

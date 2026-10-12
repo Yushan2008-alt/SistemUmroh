@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getCommissions, getCommissionRekap, getAgentsList } from '@/features/commissions/actions'
-import { CommissionStatsCards } from '@/features/commissions/components/CommissionStatsCards'
-import { CommissionTable } from '@/features/commissions/components/CommissionTable'
+import { getCommissions, getCommissionRekap, getAgentsList } from '@/modules/finance'
+import { CommissionStatsCards } from '@/modules/finance'
+import { CommissionTable } from '@/modules/finance'
 
 export const metadata = {
   title: 'Komisi Agen | Sistem Manajemen Umroh & Haji',

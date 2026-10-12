@@ -1,5 +1,5 @@
-import { getEquipmentDistributions } from '@/features/equipment/actions'
-import { EquipmentTable } from '@/features/equipment/components/EquipmentTable'
+import { getEquipmentDistributions } from '@/modules/operations'
+import { EquipmentTable } from '@/modules/operations'
 
 interface PageProps {
   searchParams: Promise<{

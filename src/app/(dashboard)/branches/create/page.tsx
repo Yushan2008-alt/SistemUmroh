@@ -1,4 +1,4 @@
-import { BranchForm } from '@/features/branches/components/BranchForm'
+import { BranchForm } from '@/modules/system'
 
 export const metadata = {
   title: 'Tambah Cabang | Sistem Manajemen Umroh & Haji',

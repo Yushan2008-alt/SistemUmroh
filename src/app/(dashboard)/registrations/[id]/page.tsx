@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getRegistrationDetail } from '@/features/registrations/actions'
-import { RegistrationDetailView } from '@/features/registrations/components/RegistrationDetailView'
+import { getRegistrationDetail } from '@/modules/pilgrims'
+import { RegistrationDetailView } from '@/modules/pilgrims'
 
 export const dynamic = 'force-dynamic'
 

@@ -1,5 +1,5 @@
-import { getAgents, getAvailableBranches } from '@/features/agents/actions'
-import { AgentsTable } from '@/features/agents/components/AgentsTable'
+import { getAgents, getAvailableBranches } from '@/modules/system'
+import { AgentsTable } from '@/modules/system'
 
 interface PageProps {
   searchParams: Promise<{ q?: string; branch?: string }>

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getManasikScheduleById } from '@/features/manasik/actions'
-import { ManasikAttendanceView } from '@/features/manasik/components/ManasikAttendanceView'
+import { getManasikScheduleById } from '@/modules/pilgrims'
+import { ManasikAttendanceView } from '@/modules/pilgrims'
 
 interface ManasikDetailPageProps {
   params: Promise<{ id: string }>

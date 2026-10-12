@@ -1,6 +1,6 @@
-import { getPilgrimsWithDocumentStats } from '@/features/documents/actions'
-import { DocumentsFilter } from '@/features/documents/components/DocumentsFilter'
-import { DocumentsTable } from '@/features/documents/components/DocumentsTable'
+import { getPilgrimsWithDocumentStats } from '@/modules/pilgrims'
+import { DocumentsFilter } from '@/modules/pilgrims'
+import { DocumentsTable } from '@/modules/pilgrims'
 import { FileCheck, ShieldCheck, Clock, AlertCircle, Users } from 'lucide-react'
 
 export const metadata = {

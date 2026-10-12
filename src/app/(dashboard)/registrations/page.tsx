@@ -1,6 +1,6 @@
-import { getRegistrations, getBookingFormOptions } from '@/features/registrations/actions'
-import { RegistrationFilter } from '@/features/registrations/components/RegistrationFilter'
-import { RegistrationTable } from '@/features/registrations/components/RegistrationTable'
+import { getRegistrations, getBookingFormOptions } from '@/modules/pilgrims'
+import { RegistrationFilter } from '@/modules/pilgrims'
+import { RegistrationTable } from '@/modules/pilgrims'
 
 export const dynamic = 'force-dynamic'
 
