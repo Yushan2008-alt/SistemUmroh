@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import {
   Users,
   UserCheck,
@@ -8,6 +9,11 @@ import {
   TrendingUp,
   Clock,
   ArrowUpRight,
+  RefreshCw,
+  Building2,
+  Calendar,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { StatCard } from '@/components/common/StatCard'
@@ -37,128 +43,152 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-
-const PAYMENT_STATUS_DATA = [
-  { name: 'Lunas', value: 72, color: '#059669' },
-  { name: 'Sebagian (Cicil)', value: 18, color: '#d97706' },
-  { name: 'Belum Bayar', value: 10, color: '#ef4444' },
-]
-
-const MONTHLY_REGISTRATIONS_DATA = [
-  { month: 'Jan', jamaah: 28 },
-  { month: 'Feb', jamaah: 35 },
-  { month: 'Mar', jamaah: 48 },
-  { month: 'Apr', jamaah: 62 },
-  { month: 'Mei', jamaah: 54 },
-  { month: 'Jun', jamaah: 41 },
-  { month: 'Jul', jamaah: 68 },
-  { month: 'Agu', jamaah: 75 },
-  { month: 'Sep', jamaah: 92 },
-]
-
-const PACKAGE_DISTRIBUTION_DATA = [
-  { name: 'Umroh Syawal', terisi: 33, kuota: 45 },
-  { name: 'Ramadhan I’tikaf', terisi: 32, kuota: 40 },
-  { name: 'Haji Furoda VIP', terisi: 16, kuota: 20 },
-  { name: 'Plus Turki 12H', terisi: 28, kuota: 35 },
-]
-
-const UPCOMING_DEPARTURES = [
-  {
-    id: 1,
-    name: 'Umroh Reguler Syawal 1447H',
-    departureDate: '15 Okt 2026',
-    daysLeft: 19,
-    airline: 'Saudia Airlines',
-    booked: 33,
-    quota: 45,
-    status: 'confirmed',
-  },
-  {
-    id: 2,
-    name: 'Umroh Ramadhan Berkah I’tikaf',
-    departureDate: '05 Nov 2026',
-    daysLeft: 40,
-    airline: 'Garuda Indonesia',
-    booked: 32,
-    quota: 40,
-    status: 'confirmed',
-  },
-  {
-    id: 3,
-    name: 'Umroh Plus Turki Musim Gugur',
-    departureDate: '20 Nov 2026',
-    daysLeft: 55,
-    airline: 'Emirates',
-    booked: 28,
-    quota: 35,
-    status: 'pending',
-  },
-  {
-    id: 4,
-    name: 'Haji Khusus Furoda VIP',
-    departureDate: '20 Mei 2027',
-    daysLeft: 236,
-    airline: 'Garuda Indonesia',
-    booked: 16,
-    quota: 20,
-    status: 'pending',
-  },
-]
+import { getStaffDashboardData, type StaffDashboardData } from './dashboard.actions'
+import { formatCurrency } from '@/lib/utils'
 
 export function StaffDashboard() {
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [currentTime, setCurrentTime] = useState<string>('')
+  const [currentDateStr, setCurrentDateStr] = useState<string>('')
+  const [data, setData] = useState<StaffDashboardData>({
+    branchId: null,
+    branchName: 'Semua Cabang (Global)',
+    totalPilgrims: 0,
+    activeRegistrations: 0,
+    totalRevenue: 0,
+    outstandingBalance: 0,
+    paymentStatusData: [],
+    monthlyRegistrations: [],
+    packageDistribution: [],
+    upcomingDepartures: [],
+    lastUpdated: new Date().toISOString(),
+  })
+
+  // 1. Live real-time clock ticker
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date()
+      setCurrentTime(
+        now.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }) + ' WIB'
+      )
+      setCurrentDateStr(
+        now.toLocaleDateString('id-ID', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      )
+    }
+    updateTime()
+    const timer = setInterval(updateTime, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // 2. Fetch staff dashboard data from Supabase
+  const fetchData = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true)
+    try {
+      const savedBranchId = localStorage.getItem('branch_focus_id')
+      const branchId = savedBranchId && savedBranchId !== 'all' ? Number(savedBranchId) : null
+      const res = await getStaffDashboardData(branchId)
+      setData(res)
+    } catch (err) {
+      console.error('Failed to load staff dashboard data:', err)
+    } finally {
+      setLoading(false)
+      if (isManualRefresh) setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+
+    // Listen to branch change from Header switcher (Fast Navigasi Cabang)
+    const handleBranchChange = () => {
+      fetchData()
+    }
+
+    window.addEventListener('branch_focus_changed', handleBranchChange)
+    return () => {
+      window.removeEventListener('branch_focus_changed', handleBranchChange)
+    }
+  }, [fetchData])
+
   return (
     <PageContainer>
-      {/* Welcome Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10 max-w-2xl">
-          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-200 bg-white/10 px-2.5 py-0.5 rounded-full inline-block mb-2">
-            Ringkasan Operasional Multi-Cabang
-          </span>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Selamat Datang di Portal Manajemen Travel
-          </h2>
-          <p className="text-xs sm:text-sm text-emerald-100 mt-1">
-            Pantau pertumbuhan jamaah, sisa kuota paket umroh &amp; haji, status pembayaran, dan manifest keberangkatan secara real-time.
-          </p>
+      {/* Real-time Status Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-border shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm text-foreground">
+                {data.branchName}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Real-Time
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {currentDateStr ? `${currentDateStr} • ${currentTime}` : 'Sinkronisasi Supabase...'}
+            </p>
+          </div>
         </div>
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-15 pointer-events-none" />
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="h-8 gap-1.5 text-xs border-border hover:bg-muted font-medium"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-emerald-600' : ''}`} />
+            <span>{refreshing ? 'Memperbarui...' : 'Segarkan Data'}</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Top 4 KPI Metrics */}
+      {/* Top 4 KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Jamaah Terdaftar"
-          value="1,248"
-          description="Jamaah aktif di seluruh cabang"
+          value={loading ? '...' : data.totalPilgrims.toLocaleString('id-ID')}
+          description={data.branchId ? `Jamaah terdaftar di ${data.branchName}` : 'Seluruh cabang operasional'}
           icon={Users}
-          trend={{ value: '+14% bln ini', isPositive: true }}
         />
         <StatCard
           title="Pendaftaran Aktif"
-          value="109"
-          description="Musim 1447H / 1448H"
+          value={loading ? '...' : data.activeRegistrations.toLocaleString('id-ID')}
+          description="Pendaftaran dalam proses dan berjalan"
           icon={UserCheck}
-          trend={{ value: '+22 pendaftar', isPositive: true }}
         />
         <StatCard
           title="Omzet Kas Masuk"
-          value="Rp 3.42 M"
-          description="Total pembayaran terverifikasi"
+          value={loading ? '...' : formatCurrency(data.totalRevenue)}
+          description="Total pembayaran telah terverifikasi"
           icon={CreditCard}
-          trend={{ value: '+8.5% MoM', isPositive: true }}
         />
         <StatCard
           title="Sisa Tagihan Outstanding"
-          value="Rp 845 Jt"
-          description="Cicilan jatuh tempo H-14"
+          value={loading ? '...' : formatCurrency(data.outstandingBalance)}
+          description="Sisa tagihan belum lunas / jatuh tempo"
           icon={AlertCircle}
         />
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts Grid Row 1: Line Chart & Donut Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Line Chart: Tren Pendaftaran Bulanan */}
+        {/* Line Chart: Tren Pendaftaran Bulanan Real-Time */}
         <Card className="lg:col-span-2 border-border/80 shadow-xs">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -167,90 +197,105 @@ export function StaffDashboard() {
                   Tren Pendaftaran Jamaah
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Pertumbuhan pendaftaran bulanan tahun berjalan
+                  Jumlah registrasi riil per bulan berdasarkan data pendaftaran
                 </CardDescription>
               </div>
               <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-md">
                 <TrendingUp className="h-3.5 w-3.5" />
-                <span>+18.4%</span>
+                <span>{data.activeRegistrations} Total Aktif</span>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="h-[260px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={MONTHLY_REGISTRATIONS_DATA}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
-                  <XAxis dataKey="month" stroke="#64748b" fontSize={11} />
-                  <YAxis stroke="#64748b" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      fontSize: '12px',
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="jamaah"
-                    name="Jamaah"
-                    stroke="#059669"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: '#059669' }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data.monthlyRegistrations} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
+                    <XAxis dataKey="month" stroke="#64748b" fontSize={11} />
+                    <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(val) => [`${val} Jamaah`, 'Pendaftaran']}
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="jamaah"
+                      name="Jamaah"
+                      stroke="#059669"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#059669' }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Donut Chart: Status Pembayaran */}
+        {/* Donut Chart: Status Pembayaran Tagihan Real-Time */}
         <Card className="border-border/80 shadow-xs">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-bold text-foreground">
               Status Pembayaran Tagihan
             </CardTitle>
             <CardDescription className="text-xs">
-              Distribusi pelunasan jamaah aktif
+              Distribusi pelunasan invoice pembayaran riil
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-[210px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={PAYMENT_STATUS_DATA}
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {PAYMENT_STATUS_DATA.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val) => [`${val}%`, 'Persentase']}
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      fontSize: '12px',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.paymentStatusData}
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {data.paymentStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val, name, item) => [`${val}% (${(item as any)?.payload?.count || 0} invoice)`, name]}
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="space-y-1.5 pt-2 border-t border-border">
-              {PAYMENT_STATUS_DATA.map((item) => (
+              {data.paymentStatusData.map((item) => (
                 <div key={item.name} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="text-muted-foreground">{item.name}</span>
                   </div>
-                  <span className="font-semibold text-foreground">{item.value}%</span>
+                  <span className="font-semibold text-foreground">
+                    {item.count} invoice ({item.value}%)
+                  </span>
                 </div>
               ))}
             </div>
@@ -258,42 +303,97 @@ export function StaffDashboard() {
         </Card>
       </div>
 
-      {/* Row 2: Bar Chart Paket Terpopuler & Tabel Keberangkatan Terdekat */}
+      {/* Row 2: GRAFIK BAR OKUPANSI KUOTA PAKET VERTIKAL (KE ATAS) & TABEL KEBERANGKATAN */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bar Chart: Okupansi Paket */}
+        {/* BAR CHART VERTIKAL (BATANG MENGARAH KE ATAS) */}
         <Card className="border-border/80 shadow-xs">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold text-foreground">
-              Okupansi Kuota Paket
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Perbandingan jamaah terdaftar vs kuota
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  Okupansi Kuota Paket
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Grafik bar vertikal: Jamaah terdaftar vs total kuota (ke atas)
+                </CardDescription>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {currentTime || 'Real-time'}
+              </span>
+            </div>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="h-[260px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={PACKAGE_DISTRIBUTION_DATA} layout="vertical" margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.6} />
-                  <XAxis type="number" stroke="#64748b" fontSize={11} />
-                  <YAxis type="category" dataKey="name" stroke="#64748b" fontSize={10} width={90} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      fontSize: '12px',
-                    }}
-                  />
-                  <Bar dataKey="terisi" name="Terisi" fill="#0d9488" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="kuota" name="Total Kuota" fill="#cbd5e1" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="h-[280px] w-full">
+              {loading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                </div>
+              ) : data.packageDistribution.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-xs text-muted-foreground">
+                  <span>Belum ada data paket aktif.</span>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  {/* Standard Recharts without layout="vertical" makes bars grow VERTICALLY (UPWARDS) */}
+                  <BarChart
+                    data={data.packageDistribution}
+                    margin={{ top: 20, right: 10, left: -10, bottom: 30 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.6} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="#64748b"
+                      fontSize={11}
+                      interval={0}
+                      angle={-15}
+                      textAnchor="end"
+                    />
+                    <YAxis
+                      type="number"
+                      stroke="#64748b"
+                      fontSize={11}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      formatter={(val, name) => [`${val} Seat`, name]}
+                      labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <Bar
+                      dataKey="terisi"
+                      name="Terisi"
+                      fill="#059669"
+                      radius={[6, 6, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="kuota"
+                      name="Total Kuota"
+                      fill="#cbd5e1"
+                      radius={[6, 6, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            <div className="flex items-center justify-center gap-6 pt-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-xs bg-[#059669]" />
+                <span className="text-muted-foreground font-medium">Terisi</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-xs bg-[#cbd5e1]" />
+                <span className="text-muted-foreground font-medium">Total Kuota</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tabel Keberangkatan Terdekat */}
+        {/* Tabel Jadwal Keberangkatan Terdekat Real-Time */}
         <Card className="lg:col-span-2 border-border/80 shadow-xs">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
@@ -301,7 +401,7 @@ export function StaffDashboard() {
                 Jadwal Keberangkatan Terdekat
               </CardTitle>
               <CardDescription className="text-xs">
-                Grup penerbangan umroh &amp; haji siap berangkat
+                Grup penerbangan umroh &amp; haji dari database aktif
               </CardDescription>
             </div>
             <Link href="/manifests" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center">
@@ -320,34 +420,49 @@ export function StaffDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {UPCOMING_DEPARTURES.map((item) => (
-                  <TableRow key={item.id} className="text-xs hover:bg-muted/30">
-                    <TableCell className="font-semibold py-3 text-foreground">
-                      {item.name}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5 text-amber-500" />
-                        <span>{item.departureDate}</span>
-                        <span className="text-[10px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 px-1.5 py-0.2 rounded font-semibold ml-1">
-                          H-{item.daysLeft}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3 text-muted-foreground">
-                      {item.airline}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-1 font-medium">
-                        <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.booked}</span>
-                        <span className="text-muted-foreground">/ {item.quota}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <StatusBadge status={item.status} />
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-xs text-muted-foreground">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-1 text-emerald-600" />
+                      Memuat jadwal keberangkatan...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : data.upcomingDepartures.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-xs text-muted-foreground">
+                      Belum ada paket terjadwal untuk cabang ini.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.upcomingDepartures.map((item) => (
+                    <TableRow key={item.id} className="text-xs hover:bg-muted/30">
+                      <TableCell className="font-semibold py-3 text-foreground">
+                        {item.name}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5 text-amber-500" />
+                          <span>{item.departureDate}</span>
+                          <span className="text-[10px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 px-1.5 py-0.2 rounded font-semibold ml-1">
+                            H-{item.daysLeft}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-muted-foreground">
+                        {item.airline}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div className="flex items-center gap-1 font-medium">
+                          <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.booked}</span>
+                          <span className="text-muted-foreground">/ {item.quota}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <StatusBadge status={item.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
