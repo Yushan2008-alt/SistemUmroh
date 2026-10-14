@@ -6,6 +6,7 @@ import { buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -92,42 +93,48 @@ export function BranchFocusSwitcher({ currentRole = 'super_admin' }: BranchFocus
         <ChevronsUpDown className="h-3 w-3 opacity-60 ml-auto shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[250px] shadow-lg">
-        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-          <span>{currentRole === 'super_admin' ? 'Fokus Cabang (Super Admin)' : 'Pilih Cabang (Admin Cabang)'}</span>
-          {loading && <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />}
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+            <span>{currentRole === 'super_admin' ? 'Fokus Cabang (Super Admin)' : 'Pilih Cabang (Admin Cabang)'}</span>
+            {loading && <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />}
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         
         {/* Opsi Semua Cabang */}
-        <DropdownMenuItem
-          onClick={() => handleSelect(null)}
-          className="flex items-center justify-between cursor-pointer py-2"
-        >
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">Semua Cabang (Global)</span>
-            <span className="text-[10px] text-muted-foreground">Konsolidasi seluruh operasional</span>
-          </div>
-          {selectedBranchId === null && <Check className="h-4 w-4 text-emerald-600 shrink-0" />}
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onClick={() => handleSelect(null)}
+            className="flex items-center justify-between cursor-pointer py-2"
+          >
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm">Semua Cabang (Global)</span>
+              <span className="text-[10px] text-muted-foreground">Konsolidasi seluruh operasional</span>
+            </div>
+            {selectedBranchId === null && <Check className="h-4 w-4 text-emerald-600 shrink-0" />}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         
         <DropdownMenuSeparator />
 
         {/* Daftar Cabang Dinamis Supabase */}
-        {branches.map((b) => (
-          <DropdownMenuItem
-            key={b.id}
-            onClick={() => handleSelect(b.id)}
-            className="flex items-center justify-between cursor-pointer py-2"
-          >
-            <div className="flex flex-col">
-              <span className="font-medium text-sm text-foreground">{b.name}</span>
-              <span className="text-[11px] text-muted-foreground font-mono">
-                {b.code} {b.is_head_office ? '• Pusat' : '• Wilayah'}
-              </span>
-            </div>
-            {selectedBranchId === b.id && <Check className="h-4 w-4 text-emerald-600 shrink-0" />}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          {branches.map((b) => (
+            <DropdownMenuItem
+              key={b.id}
+              onClick={() => handleSelect(b.id)}
+              className="flex items-center justify-between cursor-pointer py-2"
+            >
+              <div className="flex flex-col">
+                <span className="font-medium text-sm text-foreground">{b.name}</span>
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  {b.code} {b.is_head_office ? '• Pusat' : '• Wilayah'}
+                </span>
+              </div>
+              {selectedBranchId === b.id && <Check className="h-4 w-4 text-emerald-600 shrink-0" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
