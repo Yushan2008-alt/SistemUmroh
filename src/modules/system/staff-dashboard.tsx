@@ -45,8 +45,13 @@ import {
 } from 'recharts'
 import { getStaffDashboardData, type StaffDashboardData } from './dashboard.actions'
 import { formatCurrency } from '@/lib/utils'
+import type { Role } from '@/types/database.types'
 
-export function StaffDashboard() {
+interface StaffDashboardProps {
+  userRole?: Role
+}
+
+export function StaffDashboard({ userRole = 'super_admin' }: StaffDashboardProps) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [currentTime, setCurrentTime] = useState<string>('')
@@ -85,6 +90,7 @@ export function StaffDashboard() {
         })
       )
     }
+
     updateTime()
     const timer = setInterval(updateTime, 1000)
     return () => clearInterval(timer)
@@ -94,8 +100,11 @@ export function StaffDashboard() {
   const fetchData = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true)
     try {
-      const savedBranchId = localStorage.getItem('branch_focus_id')
-      const branchId = savedBranchId && savedBranchId !== 'all' ? Number(savedBranchId) : null
+      let branchId: number | null = null
+      if (userRole === 'admin') {
+        const savedBranchId = localStorage.getItem('branch_focus_id')
+        branchId = savedBranchId && savedBranchId !== 'all' ? Number(savedBranchId) : 1
+      }
       const res = await getStaffDashboardData(branchId)
       setData(res)
     } catch (err) {
@@ -104,7 +113,7 @@ export function StaffDashboard() {
       setLoading(false)
       if (isManualRefresh) setRefreshing(false)
     }
-  }, [])
+  }, [userRole])
 
   useEffect(() => {
     fetchData()

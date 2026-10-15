@@ -40,5 +40,5 @@ export default async function DashboardPage() {
     return <GuideDashboard />
   }
 
-  return <StaffDashboard />
+  return <StaffDashboard userRole={userRole} />
 }

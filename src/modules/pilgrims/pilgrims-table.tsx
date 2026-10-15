@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -20,20 +20,41 @@ import {
 } from 'lucide-react'
 import type { PilgrimItem } from './types'
 import { deletePilgrim } from './pilgrims.actions'
+import type { Role } from '@/types/database.types'
 
 interface PilgrimsTableProps {
   initialPilgrims: PilgrimItem[]
   currentSearch?: string
   currentStatus?: string
+  userRole?: Role
+  activeBranchId?: number | null
+  activeBranchName?: string | null
 }
 
 export function PilgrimsTable({
   initialPilgrims,
   currentSearch = '',
   currentStatus = 'all',
+  userRole = 'super_admin',
+  activeBranchId,
+  activeBranchName,
 }: PilgrimsTableProps) {
   const router = useRouter()
   const [pilgrims, setPilgrims] = useState<PilgrimItem[]>(initialPilgrims)
+
+  // Keep state in sync with server component re-fetches (e.g. when branch focus changes)
+  useEffect(() => {
+    setPilgrims(initialPilgrims)
+  }, [initialPilgrims])
+
+  // Listen to branch change event to revalidate
+  useEffect(() => {
+    const handleBranchChange = () => {
+      router.refresh()
+    }
+    window.addEventListener('branch_focus_changed', handleBranchChange)
+    return () => window.removeEventListener('branch_focus_changed', handleBranchChange)
+  }, [router])
   const [search, setSearch] = useState(currentSearch)
   const [status, setStatus] = useState(currentStatus)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -103,6 +124,28 @@ export function PilgrimsTable({
           <p className="text-sm text-muted-foreground mt-1">
             Master database jamaah Umroh &amp; Haji, rekam paspor, dan kontak darurat.
           </p>
+
+          {userRole === 'admin' ? (
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Cabang Operasional: {activeBranchName || 'Cabang Aktif'}
+              </span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                • Menampilkan jamaah yang terdaftar di cabang ini
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-2xs">
+                <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                Semua Cabang (Global View)
+              </span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                • Konsolidasi seluruh data jamaah nasional
+              </span>
+            </div>
+          )}
         </div>
         <Link
           href="/pilgrims/create"

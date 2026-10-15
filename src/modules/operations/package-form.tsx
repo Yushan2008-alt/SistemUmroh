@@ -15,6 +15,7 @@ import {
   Plane,
   Coins,
   Users,
+  Lock,
 } from 'lucide-react'
 import type {
   PackageItem,
@@ -22,18 +23,30 @@ import type {
   PackageFormDataOptions,
 } from './types'
 import { createPackage, updatePackage } from './packages.actions'
+import { cn } from '@/lib/utils'
+import type { Role } from '@/types/database.types'
 
 interface PackageFormProps {
   pkg?: PackageItem
   options: PackageFormDataOptions
   isEdit?: boolean
+  userRole?: Role
+  activeBranchId?: number
 }
 
-export function PackageForm({ pkg, options, isEdit = false }: PackageFormProps) {
+export function PackageForm({
+  pkg,
+  options,
+  isEdit = false,
+  userRole = 'super_admin',
+  activeBranchId,
+}: PackageFormProps) {
   const router = useRouter()
 
+  const defaultBranchId = pkg?.branch_id || (userRole === 'admin' && activeBranchId ? activeBranchId : options.branches[0]?.id || 1)
+
   const [formData, setFormData] = useState<PackageFormData>({
-    branch_id: pkg?.branch_id || options.branches[0]?.id || 1,
+    branch_id: defaultBranchId,
     name: pkg?.name || '',
     type: pkg?.type || 'umroh',
     status: pkg?.status || 'draft',
@@ -78,11 +91,16 @@ export function PackageForm({ pkg, options, isEdit = false }: PackageFormProps) 
       return
     }
 
+    const finalFormData: PackageFormData = {
+      ...formData,
+      branch_id: userRole === 'admin' && activeBranchId ? activeBranchId : formData.branch_id,
+    }
+
     let res
     if (isEdit && pkg) {
-      res = await updatePackage(pkg.id, formData)
+      res = await updatePackage(pkg.id, finalFormData)
     } else {
-      res = await createPackage(formData)
+      res = await createPackage(finalFormData)
     }
 
     setIsLoading(false)
@@ -158,20 +176,42 @@ export function PackageForm({ pkg, options, isEdit = false }: PackageFormProps) 
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                Kantor Cabang Pengelola <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={formData.branch_id}
-                onChange={(e) => setFormData({ ...formData, branch_id: Number(e.target.value) })}
-                className="w-full px-3.5 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-              >
-                {options.branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Kantor Cabang Pengelola <span className="text-rose-500">*</span>
+                </label>
+                {userRole === 'admin' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                    <Lock className="w-3 h-3 text-emerald-600" />
+                    Terkunci sesuai cabang operasional Anda
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <select
+                  value={formData.branch_id}
+                  disabled={userRole === 'admin'}
+                  onChange={(e) => setFormData({ ...formData, branch_id: Number(e.target.value) })}
+                  className={cn(
+                    "w-full px-3.5 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all",
+                    userRole === 'admin' && "bg-muted/70 text-foreground/80 cursor-not-allowed select-none opacity-90 border-dashed"
+                  )}
+                >
+                  {options.branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+                {userRole === 'admin' && (
+                  <Lock className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                )}
+              </div>
+              {userRole === 'admin' && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Sebagai Admin Cabang, paket ini otomatis terdaftar di bawah cabang operasional Anda.
+                </p>
+              )}
             </div>
 
             <div>

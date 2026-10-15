@@ -15,6 +15,7 @@ export async function getPackages(params?: {
   search?: string
   type?: string
   status?: string
+  branchId?: number | null
 }): Promise<{ data: PackageItem[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
@@ -30,6 +31,10 @@ export async function getPackages(params?: {
         registrations (id, status)
       `)
       .order('departure_date', { ascending: true })
+
+    if (params?.branchId && params.branchId > 0) {
+      query = query.eq('branch_id', params.branchId)
+    }
 
     if (params?.type && params.type !== 'all') {
       query = query.eq('type', params.type)

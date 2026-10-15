@@ -11,6 +11,7 @@ import type {
 export async function getPilgrims(params?: {
   search?: string
   status?: string
+  branchId?: number | null
 }): Promise<{ data: PilgrimItem[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
@@ -26,6 +27,10 @@ export async function getPilgrims(params?: {
         documents (id, type, status)
       `)
       .order('name', { ascending: true })
+
+    if (params?.branchId && params.branchId > 0) {
+      query = query.eq('branch_id', params.branchId)
+    }
 
     if (params?.status === 'active') {
       query = query.eq('is_active', true)
