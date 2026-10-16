@@ -17,12 +17,19 @@ import {
   ShieldCheck,
   UserCheck,
 } from 'lucide-react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { Role } from '@/types/database.types'
+import { PackageRegistrationWizardModal } from '@/modules/system'
 
 interface PackageDetailViewProps {
   pkg: any
+  userRole?: Role
 }
 
-export function PackageDetailView({ pkg }: PackageDetailViewProps) {
+export function PackageDetailView({ pkg, userRole }: PackageDetailViewProps) {
+  const router = useRouter()
+  const [isWizardOpen, setIsWizardOpen] = useState(false)
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -76,20 +83,33 @@ export function PackageDetailView({ pkg }: PackageDetailViewProps) {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Link
-            href={`/packages/${pkg.id}/edit`}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card hover:bg-muted text-foreground rounded-xl text-sm font-medium transition-colors"
-          >
-            <Edit className="w-4 h-4 text-muted-foreground" />
-            Edit Paket
-          </Link>
-          <Link
-            href={`/registrations/create?package_id=${pkg.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-md"
-          >
-            <UserCheck className="w-4 h-4" />
-            Daftarkan Jamaah
-          </Link>
+          {userRole === 'pilgrim' ? (
+            <button
+              type="button"
+              onClick={() => setIsWizardOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Pilih &amp; Daftar Paket Ini</span>
+            </button>
+          ) : (
+            <>
+              <Link
+                href={`/packages/${pkg.id}/edit`}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card hover:bg-muted text-foreground rounded-xl text-sm font-medium transition-colors"
+              >
+                <Edit className="w-4 h-4 text-muted-foreground" />
+                Edit Paket
+              </Link>
+              <Link
+                href={`/registrations/create?package_id=${pkg.id}`}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-md"
+              >
+                <UserCheck className="w-4 h-4" />
+                Daftarkan Jamaah
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -237,8 +257,9 @@ export function PackageDetailView({ pkg }: PackageDetailViewProps) {
         </div>
       </div>
 
-      {/* Registered Pilgrims Table */}
-      <div className="bg-card border border-border/80 rounded-2xl shadow-sm overflow-hidden">
+      {/* Registered Pilgrims Table (Staff Only) */}
+      {userRole !== 'pilgrim' && (
+        <div className="bg-card border border-border/80 rounded-2xl shadow-sm overflow-hidden">
         <div className="p-5 border-b border-border/60 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -307,6 +328,20 @@ export function PackageDetailView({ pkg }: PackageDetailViewProps) {
           </div>
         )}
       </div>
+      )}
+
+      {/* 5-Step Package Registration Wizard Modal for Pilgrim */}
+      {isWizardOpen && (
+        <PackageRegistrationWizardModal
+          pkg={pkg}
+          isOpen={isWizardOpen}
+          onClose={() => setIsWizardOpen(false)}
+          onSuccess={() => {
+            setIsWizardOpen(false)
+            router.push('/dashboard')
+          }}
+        />
+      )}
     </div>
   )
 }

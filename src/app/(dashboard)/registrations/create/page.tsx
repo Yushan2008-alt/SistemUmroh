@@ -3,10 +3,45 @@ import { getBookingFormOptions } from '@/modules/pilgrims'
 import { RegistrationForm } from '@/modules/pilgrims'
 import { ArrowLeft } from 'lucide-react'
 
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+
 export const dynamic = 'force-dynamic'
 
 export default async function CreateRegistrationPage() {
-  const options = await getBookingFormOptions()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let agentId: number | null = null
+
+  if (user) {
+    const { data: profile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.role === 'pilgrim') {
+      redirect('/packages')
+    }
+
+    if (profile?.role === 'agent') {
+      const admin = (await import('@/lib/supabase/admin')).createAdminClient() as any
+      const { data: ag } = await admin
+        .from('agents')
+        .select('id')
+        .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+        .maybeSingle()
+
+      if (ag) {
+        agentId = ag.id
+      } else {
+        agentId = -1
+      }
+    }
+  }
+
+  const options = await getBookingFormOptions(agentId)
 
   return (
     <div className="space-y-6">

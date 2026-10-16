@@ -2,6 +2,7 @@
 export * from './dashboard.actions';
 export * from './staff-dashboard';
 export * from './pilgrim-dashboard';
+export * from './package-registration-wizard';
 export * from './agent-dashboard';
 export * from './guide-dashboard';
 

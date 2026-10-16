@@ -9,6 +9,10 @@ import type { CommissionStatus } from '@/types/database.types'
 export async function getCommissions(filters?: CommissionFilterParams): Promise<CommissionWithRelations[]> {
   const supabase = createAdminClient()
 
+  if (filters?.agentId === -1) {
+    return []
+  }
+
   let query = (supabase.from('commissions') as any)
     .select(`
       id,
@@ -51,11 +55,26 @@ export async function getCommissions(filters?: CommissionFilterParams): Promise<
   return (data || []) as CommissionWithRelations[]
 }
 
-export async function getCommissionRekap(): Promise<CommissionRekap> {
+export async function getCommissionRekap(agentId?: number | null): Promise<CommissionRekap> {
   const supabase = createAdminClient()
 
-  const { data, error } = await (supabase.from('commissions') as any)
+  let query = (supabase.from('commissions') as any)
     .select('status, amount')
+
+  if (agentId === -1) {
+    return {
+      pending: { status: 'pending', label: 'Menunggu Persetujuan', totalCount: 0, totalAmount: 0, color: 'amber', icon: 'percent' },
+      approved: { status: 'approved', label: 'Disetujui', totalCount: 0, totalAmount: 0, color: 'blue', icon: 'check' },
+      paid: { status: 'paid', label: 'Sudah Dibayarkan', totalCount: 0, totalAmount: 0, color: 'green', icon: 'cash' },
+      cancelled: { status: 'cancelled', label: 'Dibatalkan', totalCount: 0, totalAmount: 0, color: 'red', icon: 'history' },
+    }
+  }
+
+  if (agentId && agentId > 0) {
+    query = query.eq('agent_id', agentId)
+  }
+
+  const { data, error } = await query
 
   const rekap: CommissionRekap = {
     pending: {
@@ -128,6 +147,14 @@ export async function updateCommissionStatus(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const supabase = createAdminClient()
+    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, message: 'Akses ditolak: Status komisi hanya dapat dikelola oleh manajemen staff.' }
+      }
+    }
 
     const updatePayload: Record<string, any> = {
       status,

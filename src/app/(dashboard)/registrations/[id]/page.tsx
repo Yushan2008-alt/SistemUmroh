@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getRegistrationDetail } from '@/modules/pilgrims'
+import { createClient } from '@/lib/supabase/server'
+import { getRegistrationDetail, getCurrentPilgrim } from '@/modules/pilgrims'
 import { RegistrationDetailView } from '@/modules/pilgrims'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,24 @@ export default async function RegistrationDetailPage({ params }: RegistrationDet
 
   if (error || !registration) {
     notFound()
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.role === 'pilgrim') {
+      const currentPilgrim = await getCurrentPilgrim()
+      if (!currentPilgrim || registration.pilgrim_id !== currentPilgrim.id) {
+        notFound()
+      }
+    }
   }
 
   return (

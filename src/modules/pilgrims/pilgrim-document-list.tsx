@@ -27,6 +27,7 @@ import {
 import { toast } from 'sonner'
 import { deleteDocumentFile, updatePilgrimPassport } from './documents.actions'
 import { STANDARD_DOCUMENTS, type DocumentItem, type PilgrimWithDocumentsSummary } from './types'
+import type { Role } from '@/types/database.types'
 import { DocumentPreviewModal } from './document-preview-modal'
 import { DocumentUploadModal } from './document-upload-modal'
 import { DocumentVerificationModal } from './document-verify-modal'
@@ -34,11 +35,13 @@ import { DocumentVerificationModal } from './document-verify-modal'
 interface PilgrimDocumentListProps {
   pilgrim: PilgrimWithDocumentsSummary
   documents: DocumentItem[]
+  userRole?: Role
 }
 
 export function PilgrimDocumentList({
   pilgrim,
   documents: initialDocuments,
+  userRole,
 }: PilgrimDocumentListProps) {
   const router = useRouter()
   const [documents, setDocuments] = useState<DocumentItem[]>(initialDocuments)
@@ -490,14 +493,16 @@ export function PilgrimDocumentList({
                             <Download className="w-3.5 h-3.5" />
                           </a>
                         )}
-                        <button
-                          onClick={() => handleDeleteFile(doc.id)}
-                          disabled={deletingId === doc.id}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors disabled:opacity-50"
-                          title="Hapus Berkas"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {userRole !== 'pilgrim' && (
+                          <button
+                            onClick={() => handleDeleteFile(doc.id)}
+                            disabled={deletingId === doc.id}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors disabled:opacity-50"
+                            title="Hapus Berkas"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </>
                     ) : (
                       <span className="text-[11px] text-slate-400 italic">Berkas belum ada</span>
@@ -518,8 +523,8 @@ export function PilgrimDocumentList({
                       <span>{hasFile ? 'Ganti Berkas' : 'Unggah Berkas'}</span>
                     </button>
 
-                    {/* Admin Verification Button (Only when file uploaded) */}
-                    {hasFile && (
+                    {/* Admin Verification Button (Only when file uploaded and user is not pilgrim) */}
+                    {hasFile && userRole !== 'pilgrim' && (
                       <button
                         onClick={() => setVerifyDoc(doc)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"

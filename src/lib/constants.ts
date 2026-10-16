@@ -206,6 +206,12 @@ export const NAVIGATION_GROUPS: NavGroup[] = [
         roles: ['agent'],
       },
       {
+        title: 'Tagihan Referral',
+        href: '/payments',
+        icon: CreditCard,
+        roles: ['agent'],
+      },
+      {
         title: 'Komisi Saya',
         href: '/commissions',
         icon: Coins,
@@ -215,12 +221,6 @@ export const NAVIGATION_GROUPS: NavGroup[] = [
         title: 'Paket Tersedia',
         href: '/packages',
         icon: Package,
-        roles: ['agent'],
-      },
-      {
-        title: 'Pengumuman Travel',
-        href: '/announcements',
-        icon: Megaphone,
         roles: ['agent'],
       },
     ],

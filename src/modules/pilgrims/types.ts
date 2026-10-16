@@ -262,6 +262,7 @@ export interface DocumentFilterParams {
   search?: string
   status?: 'all' | 'complete' | 'in_review' | 'rejected' | 'incomplete'
   packageId?: string
+  pilgrimId?: number
 }
 
 // ============================================================================

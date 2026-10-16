@@ -59,6 +59,10 @@ export async function getPilgrimsWithDocumentStats(
       `)
       .order('name', { ascending: true })
 
+    if (params?.pilgrimId) {
+      query = query.eq('id', params.pilgrimId)
+    }
+
     const { data, error } = await query
 
     if (error) {

@@ -30,6 +30,7 @@ export interface BranchOption {
   id: number
   name: string
   code: string
+  is_head_office?: boolean
 }
 
 export interface PackageItem {

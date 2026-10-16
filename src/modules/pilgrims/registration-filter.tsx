@@ -5,11 +5,14 @@ import Link from 'next/link'
 import { Search, UserPlus, Filter, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
+import type { Role } from '@/types/database.types'
+
 interface RegistrationFilterProps {
   packages: { id: number; name: string }[]
+  userRole?: Role
 }
 
-export function RegistrationFilter({ packages }: RegistrationFilterProps) {
+export function RegistrationFilter({ packages, userRole }: RegistrationFilterProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -122,14 +125,16 @@ export function RegistrationFilter({ packages }: RegistrationFilterProps) {
         )}
       </div>
 
-      {/* Primary CTA */}
-      <Link
-        href="/registrations/create"
-        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm transition-colors shadow-xs shrink-0"
-      >
-        <UserPlus className="h-4 w-4" />
-        <span>Daftarkan Jamaah</span>
-      </Link>
+      {/* Primary CTA (Staff Only) */}
+      {userRole !== 'pilgrim' && (
+        <Link
+          href="/registrations/create"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm transition-colors shadow-xs shrink-0"
+        >
+          <UserPlus className="h-4 w-4" />
+          <span>Daftarkan Jamaah</span>
+        </Link>
+      )}
     </div>
   )
 }

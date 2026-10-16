@@ -331,14 +331,16 @@ export function PilgrimsTable({
                           >
                             <Edit className="w-4 h-4" />
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmPilgrim(pilgrim)}
-                            className="p-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
-                            title="Hapus Jamaah"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {userRole !== 'agent' && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmPilgrim(pilgrim)}
+                              className="p-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Hapus Jamaah"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

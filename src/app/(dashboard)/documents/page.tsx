@@ -1,4 +1,6 @@
-import { getPilgrimsWithDocumentStats } from '@/modules/pilgrims'
+import { createClient } from '@/lib/supabase/server'
+import type { Role } from '@/types/database.types'
+import { getPilgrimsWithDocumentStats, getCurrentPilgrim } from '@/modules/pilgrims'
 import { DocumentsFilter } from '@/modules/pilgrims'
 import { DocumentsTable } from '@/modules/pilgrims'
 import { FileCheck, ShieldCheck, Clock, AlertCircle, Users } from 'lucide-react'
@@ -20,10 +22,35 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
   const search = resolvedSearchParams.search || ''
   const status = resolvedSearchParams.status || 'all'
 
-  // Fetch all pilgrims with document stats
-  const { data: allPilgrims } = await getPilgrimsWithDocumentStats()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Calculate global summary stats
+  let userRole: Role = 'super_admin'
+  let currentPilgrimId: number | undefined = undefined
+
+  if (user) {
+    const { data: profile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profile?.role) {
+      userRole = profile.role as Role
+    }
+    if (userRole === 'pilgrim') {
+      const pilgrim = await getCurrentPilgrim()
+      if (pilgrim) {
+        currentPilgrimId = pilgrim.id
+      }
+    }
+  }
+
+  // Fetch pilgrims with document stats (scoped to own data if pilgrim)
+  const { data: allPilgrims } = await getPilgrimsWithDocumentStats(
+    currentPilgrimId ? { pilgrimId: currentPilgrimId } : undefined
+  )
+
+  // Calculate summary stats
   const totalPilgrims = allPilgrims.length
   const completeCount = allPilgrims.filter((p) => p.overall_status === 'complete').length
   const inReviewCount = allPilgrims.filter((p) => p.overall_status === 'in_review').length
@@ -34,6 +61,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
   const { data: pilgrims } = await getPilgrimsWithDocumentStats({
     search,
     status,
+    pilgrimId: currentPilgrimId,
   })
 
   return (
@@ -64,12 +92,14 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
           </div>
           <div>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Total Jamaah
+              {userRole === 'pilgrim' ? 'Status Dokumen Saya' : 'Total Jamaah'}
             </span>
             <div className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">
-              {totalPilgrims}
+              {userRole === 'pilgrim' ? (completeCount > 0 ? 'Lengkap (6/6)' : inReviewCount > 0 ? 'Meninjau' : 'Belum Lengkap') : totalPilgrims}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">Terdaftar di sistem</div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {userRole === 'pilgrim' ? 'Berkas Pribadi Terdaftar' : 'Terdaftar di sistem'}
+            </div>
           </div>
         </div>
 
@@ -128,18 +158,21 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Filter Component */}
-      <DocumentsFilter
-        currentSearch={search}
-        currentStatus={status}
-        stats={{
-          total: totalPilgrims,
-          complete: completeCount,
-          in_review: inReviewCount,
-          rejected: rejectedCount,
-          incomplete: incompleteCount,
-        }}
-      />
+      {/* Filter Component (Staff Only) */}
+      {userRole !== 'pilgrim' && (
+        <DocumentsFilter
+          currentSearch={search}
+          currentStatus={status}
+          userRole={userRole}
+          stats={{
+            total: totalPilgrims,
+            complete: completeCount,
+            in_review: inReviewCount,
+            rejected: rejectedCount,
+            incomplete: incompleteCount,
+          }}
+        />
+      )}
 
       {/* Table Component */}
       <DocumentsTable items={pilgrims} />

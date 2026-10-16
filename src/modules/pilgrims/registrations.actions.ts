@@ -10,9 +10,15 @@ export async function getRegistrations(params?: {
   status?: string
   package_id?: number
   search?: string
+  pilgrim_id?: number
+  agent_id?: number | null
 }): Promise<{ data: RegistrationListItem[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+
+    if (params?.agent_id === -1) {
+      return { data: [] }
+    }
 
     let query = supabase
       .from('registrations')
@@ -27,12 +33,20 @@ export async function getRegistrations(params?: {
       `)
       .order('registered_at', { ascending: false })
 
+    if (params?.agent_id && params.agent_id > 0) {
+      query = query.eq('agent_id', params.agent_id)
+    }
+
     if (params?.status && params.status !== 'all') {
       query = query.eq('status', params.status)
     }
 
     if (params?.package_id && params.package_id > 0) {
       query = query.eq('package_id', params.package_id)
+    }
+
+    if (params?.pilgrim_id && params.pilgrim_id > 0) {
+      query = query.eq('pilgrim_id', params.pilgrim_id)
     }
 
     const { data, error } = await query
@@ -134,7 +148,7 @@ export async function getRegistrationDetail(id: number): Promise<{ data: Registr
   }
 }
 
-export async function getBookingFormOptions(): Promise<{
+export async function getBookingFormOptions(agentId?: number | null): Promise<{
   pilgrims: any[]
   packages: any[]
   guides: any[]
@@ -142,8 +156,22 @@ export async function getBookingFormOptions(): Promise<{
   try {
     const supabase = createAdminClient() as any
 
+    if (agentId === -1) {
+      return { pilgrims: [], packages: [], guides: [] }
+    }
+
+    let pilgrimsQuery = supabase
+      .from('pilgrims')
+      .select('id, name, nik, phone, passport_number, agent_id')
+      .eq('is_active', true)
+      .order('name')
+
+    if (agentId && agentId > 0) {
+      pilgrimsQuery = pilgrimsQuery.eq('agent_id', agentId)
+    }
+
     const [pilgrimsRes, packagesRes, guidesRes] = await Promise.all([
-      supabase.from('pilgrims').select('id, name, nik, phone, passport_number, agent_id').eq('is_active', true).order('name'),
+      pilgrimsQuery,
       supabase.from('packages').select('id, name, type, price, departure_date, quota, branch_id').eq('status', 'published').order('departure_date'),
       supabase.from('guides').select('id, name').eq('is_active', true).order('name'),
     ])
@@ -184,6 +212,23 @@ export async function getBookingFormOptions(): Promise<{
 export async function createRegistration(formData: RegistrationFormData): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     const admin = createAdminClient() as any
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+
+    let userRole = 'super_admin'
+    let agentRecord: any = null
+    if (user) {
+      const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role) userRole = prof.role
+      if (userRole === 'agent') {
+        const { data: ag } = await admin
+          .from('agents')
+          .select('id, name, code, branch_id, commission_rate')
+          .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+          .maybeSingle()
+        agentRecord = ag
+      }
+    }
 
     // 1. Validasi keberadaan paket & kuota
     const { data: pkg, error: pkgErr } = await admin
@@ -220,22 +265,35 @@ export async function createRegistration(formData: RegistrationFormData): Promis
       return { success: false, error: 'Jamaah ini sudah pernah didaftarkan pada paket yang sama.' }
     }
 
-    // 3. Ambil data jamaah untuk afiliasi agen
+    // 3. Ambil data jamaah untuk afiliasi agen & validasi hak akses
     const { data: pilgrim } = await admin
       .from('pilgrims')
-      .select('agent_id')
+      .select('id, agent_id, branch_id')
       .eq('id', formData.pilgrim_id)
       .single()
+
+    if (!pilgrim) {
+      return { success: false, error: 'Data jamaah tidak ditemukan.' }
+    }
+
+    if (userRole === 'agent') {
+      if (!agentRecord || pilgrim.agent_id !== agentRecord.id) {
+        return { success: false, error: 'Akses ditolak: Anda hanya dapat mendaftarkan jamaah referral Anda sendiri.' }
+      }
+    }
 
     // 4. Generate Kode Registrasi Unik
     const randomSuffix = Math.floor(10000 + Math.random() * 90000).toString()
     const regCode = `REG-${randomSuffix}`
 
+    const assignedAgentId = userRole === 'agent' ? agentRecord?.id : (pilgrim.agent_id || null)
+    const assignedBranchId = (userRole === 'agent' && agentRecord?.branch_id) ? agentRecord.branch_id : pkg.branch_id
+
     const registrationPayload: any = {
-      branch_id: pkg.branch_id,
+      branch_id: assignedBranchId,
       pilgrim_id: formData.pilgrim_id,
       package_id: formData.package_id,
-      agent_id: pilgrim?.agent_id || null,
+      agent_id: assignedAgentId,
       guide_id: formData.guide_id || null,
       code: regCode,
       status: 'pending',
@@ -257,7 +315,7 @@ export async function createRegistration(formData: RegistrationFormData): Promis
     // 5. Inisialisasi Tagihan Uang Muka (DP) default
     const dpAmount = Math.min(5000000, Number(pkg.price))
     await admin.from('payments').insert({
-      branch_id: pkg.branch_id,
+      branch_id: assignedBranchId,
       registration_id: newReg.id,
       code: `${regCode}-DP`,
       type: 'down_payment',
@@ -268,14 +326,14 @@ export async function createRegistration(formData: RegistrationFormData): Promis
     })
 
     // 6. Inisialisasi Komisi Agen (jika ada agen)
-    if (pilgrim?.agent_id) {
-      const { data: agent } = await admin.from('agents').select('commission_rate').eq('id', pilgrim.agent_id).single()
+    if (assignedAgentId) {
+      const { data: agent } = await admin.from('agents').select('commission_rate, branch_id').eq('id', assignedAgentId).single()
       if (agent) {
         const rate = Number(agent.commission_rate) || 0
         const commissionAmount = Math.round((Number(pkg.price) * rate) / 100)
         await admin.from('commissions').insert({
-          branch_id: pkg.branch_id,
-          agent_id: pilgrim.agent_id,
+          branch_id: agent.branch_id || assignedBranchId,
+          agent_id: assignedAgentId,
           registration_id: newReg.id,
           base_amount: pkg.price,
           rate: rate,
@@ -306,6 +364,23 @@ export async function updateRegistration(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const admin = createAdminClient() as any
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+
+    if (user) {
+      const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent') {
+        const { data: ag } = await admin.from('agents').select('id').or(`profile_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+        const { data: reg } = await admin.from('registrations').select('id, agent_id').eq('id', id).maybeSingle()
+        if (!reg || !ag || reg.agent_id !== ag.id) {
+          return { success: false, error: 'Akses ditolak: Anda hanya dapat memperbarui pendaftaran milik Anda sendiri.' }
+        }
+        // Agent cannot change status directly (staff only)
+        if (payload.status) {
+          delete payload.status
+        }
+      }
+    }
 
     const updateData: any = {
       updated_at: new Date().toISOString(),
@@ -337,6 +412,15 @@ export async function updateRegistrationStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const admin = createAdminClient() as any
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+
+    if (user) {
+      const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent') {
+        return { success: false, error: 'Akses ditolak: Status pendaftaran hanya dapat dikonfirmasi oleh staf operasional.' }
+      }
+    }
 
     const { error } = await admin
       .from('registrations')
@@ -360,6 +444,15 @@ export async function updateRegistrationStatus(
 export async function deleteRegistration(id: number): Promise<{ success: boolean; error?: string }> {
   try {
     const admin = createAdminClient() as any
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+
+    if (user) {
+      const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, error: 'Akses ditolak: Anda tidak memiliki izin untuk menghapus pendaftaran ini.' }
+      }
+    }
 
     const { error } = await admin.from('registrations').delete().eq('id', id)
 

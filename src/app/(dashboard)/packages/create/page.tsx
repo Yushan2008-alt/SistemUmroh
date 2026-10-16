@@ -26,6 +26,10 @@ export default async function CreatePackagePage() {
     if (profile?.role) {
       userRole = profile.role as Role
     }
+    if (userRole === 'agent' || userRole === 'pilgrim') {
+      const { redirect } = await import('next/navigation')
+      redirect('/packages')
+    }
     if (profile?.branch_id) {
       userBranchId = profile.branch_id
     }

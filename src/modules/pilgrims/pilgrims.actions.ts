@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type {
   PilgrimItem,
@@ -12,6 +13,7 @@ export async function getPilgrims(params?: {
   search?: string
   status?: string
   branchId?: number | null
+  agentId?: number | null
 }): Promise<{ data: PilgrimItem[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
@@ -27,6 +29,10 @@ export async function getPilgrims(params?: {
         documents (id, type, status)
       `)
       .order('name', { ascending: true })
+
+    if (params?.agentId !== undefined && params.agentId !== null) {
+      query = query.eq('agent_id', params.agentId)
+    }
 
     if (params?.branchId && params.branchId > 0) {
       query = query.eq('branch_id', params.branchId)
@@ -66,11 +72,31 @@ export async function getPilgrims(params?: {
 
 export async function getPilgrimFormData(): Promise<PilgrimFormDataOptions> {
   const supabase = createAdminClient() as any
+  const serverSupabase = await createClient()
+  const { data: { user } } = await serverSupabase.auth.getUser()
+
+  let userRole = 'super_admin'
+  let agentRecord: any = null
+  if (user) {
+    const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (prof?.role) userRole = prof.role
+    if (userRole === 'agent') {
+      const { data: ag } = await supabase.from('agents').select('id, name, code, branch_id').or(`profile_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+      agentRecord = ag
+    }
+  }
 
   const [branchesRes, agentsRes] = await Promise.all([
     supabase.from('branches').select('id, name, code').eq('is_active', true).order('name'),
     supabase.from('agents').select('id, name, code').eq('is_active', true).order('name'),
   ])
+
+  if (userRole === 'agent' && agentRecord) {
+    return {
+      branches: (branchesRes.data || []).filter((b: any) => b.id === agentRecord.branch_id),
+      agents: [agentRecord],
+    }
+  }
 
   return {
     branches: branchesRes.data || [],
@@ -140,6 +166,37 @@ export async function createPilgrim(
       return { success: false, error: `NIK "${data.nik}" sudah terdaftar pada jamaah lain.` }
     }
 
+    // Identifikasi peran pemanggil (Staff vs Agen)
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    let callerRole = 'super_admin'
+    let callerAgentId: number | null = null
+    let callerBranchId: number | null = null
+
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role, branch_id').eq('id', user.id).maybeSingle()
+      if (prof?.role) callerRole = prof.role
+      if (prof?.branch_id) callerBranchId = prof.branch_id
+      if (callerRole === 'agent') {
+        const { data: ag } = await supabase.from('agents').select('id, branch_id').or(`profile_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+        if (ag) {
+          callerAgentId = ag.id
+          callerBranchId = ag.branch_id
+        }
+      }
+    }
+
+    let finalBranchId = Number(data.branch_id) || callerBranchId || 1
+    let finalAgentId = data.agent_id ? Number(data.agent_id) : null
+
+    if (callerRole === 'agent') {
+      if (!callerAgentId) {
+        return { success: false, error: 'Profil agen Anda belum terdaftar dalam sistem mitra.' }
+      }
+      finalAgentId = callerAgentId
+      finalBranchId = callerBranchId || 1
+    }
+
     // 2. Generate Kode Jamaah (JM-YYYYMM-XXXX)
     const prefix = `JM-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`
     const randomSuffix = Math.floor(1000 + Math.random() * 9000)
@@ -148,7 +205,7 @@ export async function createPilgrim(
     let createdProfileId: string | null = null
     let temporaryPassword: string | undefined = undefined
 
-    // 3. Akun Login opsional jika dicentang
+    // 3. Akun Login opsional jika dicentang (AccountProvisioner)
     if (data.create_account) {
       const email = data.account_email?.trim() || data.email?.trim()
       if (!email) {
@@ -183,7 +240,7 @@ export async function createPilgrim(
         // Upsert ke public.profiles
         await supabase.from('profiles').upsert({
           id: createdProfileId,
-          branch_id: Number(data.branch_id),
+          branch_id: finalBranchId,
           name: data.name.trim(),
           email,
           phone: data.phone.trim(),
@@ -195,8 +252,8 @@ export async function createPilgrim(
 
     // 4. Insert data jamaah
     const { error: insertError } = await supabase.from('pilgrims').insert({
-      branch_id: Number(data.branch_id),
-      agent_id: data.agent_id ? Number(data.agent_id) : null,
+      branch_id: finalBranchId,
+      agent_id: finalAgentId,
       profile_id: createdProfileId,
       code: generatedCode,
       nik: data.nik.trim(),
@@ -247,11 +304,43 @@ export async function updatePilgrim(
       return { success: false, error: `NIK "${data.nik}" sudah terdaftar pada jamaah lain.` }
     }
 
+    // Identifikasi peran pemanggil
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    let callerRole = 'super_admin'
+    let callerAgentId: number | null = null
+    let callerBranchId: number | null = null
+
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role, branch_id').eq('id', user.id).maybeSingle()
+      if (prof?.role) callerRole = prof.role
+      if (prof?.branch_id) callerBranchId = prof.branch_id
+      if (callerRole === 'agent') {
+        const { data: ag } = await supabase.from('agents').select('id, branch_id').or(`profile_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+        if (ag) {
+          callerAgentId = ag.id
+          callerBranchId = ag.branch_id
+        }
+      }
+    }
+
+    let finalBranchId = Number(data.branch_id) || callerBranchId || 1
+    let finalAgentId = data.agent_id ? Number(data.agent_id) : null
+
+    if (callerRole === 'agent') {
+      const { data: existingPilgrim } = await supabase.from('pilgrims').select('agent_id').eq('id', id).maybeSingle()
+      if (!existingPilgrim || existingPilgrim.agent_id !== callerAgentId) {
+        return { success: false, error: 'Akses ditolak: Anda hanya dapat mengedit jamaah referral Anda sendiri.' }
+      }
+      finalAgentId = callerAgentId
+      finalBranchId = callerBranchId || 1
+    }
+
     const { error } = await supabase
       .from('pilgrims')
       .update({
-        branch_id: Number(data.branch_id),
-        agent_id: data.agent_id ? Number(data.agent_id) : null,
+        branch_id: finalBranchId,
+        agent_id: finalAgentId,
         nik: data.nik.trim(),
         passport_number: data.passport_number?.trim() || null,
         passport_expiry: data.passport_expiry || null,
@@ -288,6 +377,19 @@ export async function deletePilgrim(id: number): Promise<{ success: boolean; err
   try {
     const supabase = createAdminClient() as any
 
+    // Validasi wewenang: Agen dilarang menghapus jamaah
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent') {
+        return {
+          success: false,
+          error: 'Akses ditolak: Mitra agen tidak memiliki izin untuk menghapus data jamaah (khusus staf).',
+        }
+      }
+    }
+
     // Cek apakah ada pendaftaran aktif
     const { data: regs } = await supabase
       .from('registrations')
@@ -317,3 +419,92 @@ export async function deletePilgrim(id: number): Promise<{ success: boolean; err
     return { success: false, error: err.message || 'Gagal menghapus data jamaah' }
   }
 }
+
+export interface CurrentPilgrimSummary {
+  id: number
+  name: string
+  nik: string
+  phone: string
+  code: string
+  branch_id: number
+  profile_id?: string
+}
+
+/**
+ * Get or automatically resolve the pilgrim record linked to the authenticated user.
+ */
+export async function getCurrentPilgrim(): Promise<CurrentPilgrimSummary | null> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const admin = createAdminClient() as any
+    let { data: pilgrim } = await admin
+      .from('pilgrims')
+      .select('id, name, nik, phone, code, branch_id, profile_id')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (!pilgrim) {
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('name, phone, branch_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile?.phone) {
+        const { data: byPhone } = await admin
+          .from('pilgrims')
+          .select('id, name, nik, phone, code, branch_id, profile_id')
+          .eq('phone', profile.phone)
+          .maybeSingle()
+        if (byPhone) {
+          await admin.from('pilgrims').update({ profile_id: user.id }).eq('id', byPhone.id)
+          pilgrim = { ...byPhone, profile_id: user.id }
+        }
+      }
+
+      if (!pilgrim) {
+        const defaultName = profile?.name || user.user_metadata?.full_name || 'Ahmad Fauzi'
+        const { data: byName } = await admin
+          .from('pilgrims')
+          .select('id, name, nik, phone, code, branch_id, profile_id')
+          .eq('name', defaultName)
+          .maybeSingle()
+
+        if (byName) {
+          await admin.from('pilgrims').update({ profile_id: user.id }).eq('id', byName.id)
+          pilgrim = { ...byName, profile_id: user.id }
+        } else {
+          // Provision pilgrim record for this user
+          const pilgrimCode = `PLG-${Date.now().toString().slice(-6)}`
+          const { data: created } = await admin
+            .from('pilgrims')
+            .insert({
+              profile_id: user.id,
+              branch_id: profile?.branch_id || 1,
+              name: defaultName,
+              phone: profile?.phone || '08123456789',
+              gender: 'male',
+              nik: '320101' + Date.now().toString().slice(-10),
+              code: pilgrimCode,
+              is_active: true,
+            })
+            .select('id, name, nik, phone, code, branch_id, profile_id')
+            .single()
+
+          pilgrim = created
+        }
+      }
+    }
+
+    return pilgrim || null
+  } catch (err) {
+    console.error('getCurrentPilgrim error:', err)
+    return null
+  }
+}
+

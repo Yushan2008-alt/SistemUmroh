@@ -75,6 +75,8 @@ export interface PaymentFilterParams {
   search?: string
   status?: string
   type?: string
+  pilgrimId?: number
+  agentId?: number | null
 }
 
 export interface RecordManualPaymentData {
@@ -100,6 +102,21 @@ export interface MidtransSnapResult {
   is_mock?: boolean
   selected_channel?: string
   deeplink_url?: string
+}
+
+export interface MidtransPaymentDetails {
+  payment_type?: string
+  gross_amount?: string
+  va_numbers?: Array<{ bank: string; va_number: string }>
+  bill_key?: string
+  biller_code?: string
+  permata_va_number?: string
+  transaction_time?: string
+  qr_code_url?: string | null
+  qr_string?: string | null
+  deeplink_url?: string | null
+  transaction_id?: string
+  actions?: Array<{ name: string; method?: string; url: string }>
 }
 
 // ============================================================================

@@ -4,9 +4,12 @@ import { Search, Filter, RotateCcw, CheckCircle2, Clock, AlertCircle, FileX2 } f
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
+import type { Role } from '@/types/database.types'
+
 interface DocumentsFilterProps {
   currentSearch?: string
   currentStatus?: string
+  userRole?: Role
   stats?: {
     total: number
     complete: number
@@ -19,6 +22,7 @@ interface DocumentsFilterProps {
 export function DocumentsFilter({
   currentSearch = '',
   currentStatus = 'all',
+  userRole,
   stats,
 }: DocumentsFilterProps) {
   const router = useRouter()
@@ -56,7 +60,9 @@ export function DocumentsFilter({
   }
 
   const statusTabs = [
-    { id: 'all', label: 'Semua Jamaah', count: stats?.total, icon: null },
+    ...(userRole !== 'pilgrim'
+      ? [{ id: 'all', label: 'Semua Jamaah', count: stats?.total, icon: null }]
+      : []),
     {
       id: 'complete',
       label: 'Lengkap (6/6)',

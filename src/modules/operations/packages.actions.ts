@@ -152,6 +152,14 @@ export async function getPackageById(id: number): Promise<{ data: any | null; er
 export async function createPackage(data: PackageFormData): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, error: 'Akses ditolak: Hanya staf/admin yang berhak membuat paket perjalanan.' }
+      }
+    }
 
     const { error } = await supabase.from('packages').insert({
       branch_id: Number(data.branch_id),
@@ -187,6 +195,14 @@ export async function createPackage(data: PackageFormData): Promise<{ success: b
 export async function updatePackage(id: number, data: PackageFormData): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, error: 'Akses ditolak: Hanya staf/admin yang berhak memperbarui paket perjalanan.' }
+      }
+    }
 
     const { error } = await supabase
       .from('packages')
@@ -227,6 +243,14 @@ export async function updatePackage(id: number, data: PackageFormData): Promise<
 export async function deletePackage(id: number): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, error: 'Akses ditolak: Hanya staf/admin yang berhak menghapus paket perjalanan.' }
+      }
+    }
 
     // Cek apakah ada pendaftaran aktif
     const { data: regs } = await supabase
@@ -255,5 +279,50 @@ export async function deletePackage(id: number): Promise<{ success: boolean; err
   } catch (err: any) {
     console.error('Unexpected error deleting package:', err)
     return { success: false, error: err.message || 'Gagal menghapus paket perjalanan' }
+  }
+}
+
+export async function getOperationalBranches(): Promise<{
+  data: Array<{ id: number; name: string; code: string; is_head_office: boolean }>
+  error?: string
+}> {
+  try {
+    const supabase = createAdminClient() as any
+
+    // 1. Fetch distinct branch IDs from packages
+    const { data: pkgData, error: pkgError } = await supabase
+      .from('packages')
+      .select('branch_id')
+
+    if (pkgError) {
+      console.error('Error fetching package branch IDs:', pkgError)
+    }
+
+    const branchIdsWithPackages = (pkgData || [])
+      .map((p: any) => p.branch_id)
+      .filter((id: any): id is number => typeof id === 'number' && id > 0)
+
+    // Ensure Kantor Pusat (1) + any branch with registered packages
+    const allowedIds = Array.from(new Set([1, ...branchIdsWithPackages]))
+
+    // 2. Fetch branch details using createAdminClient to bypass RLS
+    const { data: branchRows, error: branchError } = await supabase
+      .from('branches')
+      .select('id, name, code, is_head_office')
+      .in('id', allowedIds)
+      .eq('is_active', true)
+      .order('id', { ascending: true })
+
+    if (branchError) {
+      throw branchError
+    }
+
+    return { data: branchRows || [] }
+  } catch (err: any) {
+    console.error('Unexpected error fetching operational branches:', err)
+    return {
+      data: [{ id: 1, name: 'Kantor Pusat Jakarta', code: 'HO-JKT', is_head_office: true }],
+      error: err.message,
+    }
   }
 }

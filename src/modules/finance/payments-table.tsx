@@ -23,12 +23,14 @@ import type { PaymentListItem } from './types'
 import { MidtransPaymentModal } from './midtrans-modal'
 import { RecordPaymentModal } from './record-payment-modal'
 import { ReceiptModal } from './receipt-modal'
+import type { Role } from '@/types/database.types'
 
 interface PaymentsTableProps {
   items: PaymentListItem[]
+  userRole?: Role
 }
 
-export function PaymentsTable({ items }: PaymentsTableProps) {
+export function PaymentsTable({ items, userRole }: PaymentsTableProps) {
   const router = useRouter()
   const [midtransDoc, setMidtransDoc] = useState<PaymentListItem | null>(null)
   const [manualDoc, setManualDoc] = useState<PaymentListItem | null>(null)
@@ -84,7 +86,9 @@ export function PaymentsTable({ items }: PaymentsTableProps) {
                 <th className="py-3.5 px-4">Jatuh Tempo</th>
                 <th className="py-3.5 px-4">Rincian Nominal</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-right">Aksi Kasir</th>
+                <th className="py-3.5 px-4 text-right">
+                  {userRole === 'pilgrim' ? 'Aksi Pembayaran' : userRole === 'agent' ? 'Dokumen' : 'Aksi Kasir'}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
@@ -232,8 +236,8 @@ export function PaymentsTable({ items }: PaymentsTableProps) {
                     {/* Actions Toolbar */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                        {/* Midtrans Online Payment Button */}
-                        {payment.status !== 'paid' && (
+                        {/* Midtrans Online Payment Button (Pilgrim & Staff) */}
+                        {userRole !== 'agent' && payment.status !== 'paid' && (
                           <button
                             onClick={() => setMidtransDoc(payment)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors shadow-sm"
@@ -244,8 +248,8 @@ export function PaymentsTable({ items }: PaymentsTableProps) {
                           </button>
                         )}
 
-                        {/* Manual Cashier Recording Button */}
-                        {payment.status !== 'paid' && (
+                        {/* Manual Cashier Recording Button (Staff Only) */}
+                        {userRole !== 'pilgrim' && userRole !== 'agent' && payment.status !== 'paid' && (
                           <button
                             onClick={() => setManualDoc(payment)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -266,6 +270,11 @@ export function PaymentsTable({ items }: PaymentsTableProps) {
                             <Receipt className="w-3.5 h-3.5" />
                             <span>Kwitansi</span>
                           </button>
+                        )}
+
+                        {/* Read-only label for agent if unpaid */}
+                        {userRole === 'agent' && payment.paid_amount === 0 && (
+                          <span className="text-xs text-slate-400 italic px-2 py-1">Hanya Lihat</span>
                         )}
 
                         {/* On-demand Sync Status Button */}

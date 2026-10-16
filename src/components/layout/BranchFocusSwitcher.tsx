@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { createClient } from '@/lib/supabase/client'
+import { getOperationalBranches } from '@/modules/operations'
 import { cn } from '@/lib/utils'
 import type { Role } from '@/types/database.types'
 
@@ -34,47 +34,36 @@ export function BranchFocusSwitcher({ currentRole = 'admin' }: BranchFocusSwitch
   const [loading, setLoading] = useState(true)
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null)
 
-  useEffect(() => {
-    async function fetchBranches() {
-      try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('branches')
-          .select('id, name, code, is_head_office')
-          .eq('is_active', true)
-          .order('id', { ascending: true })
+  const fetchBranches = async () => {
+    try {
+      setLoading(true)
+      const res = await getOperationalBranches()
+      const branchList: Branch[] = res.data && res.data.length > 0
+        ? res.data
+        : [{ id: 1, name: 'Kantor Pusat Jakarta', code: 'HO-JKT', is_head_office: true }]
 
-        let branchList: Branch[] = []
-        if (!error && data && data.length > 0) {
-          branchList = data
-        } else {
-          // Fallback 5 branches
-          branchList = [
-            { id: 1, name: 'Kantor Pusat Jakarta', code: 'HO-JKT', is_head_office: true },
-            { id: 2, name: 'Cabang Surabaya', code: 'CAB-SBY', is_head_office: false },
-            { id: 3, name: 'Cabang Bandung', code: 'CAB-BDG', is_head_office: false },
-            { id: 4, name: 'Cabang Yogyakarta', code: 'CAB-YOG', is_head_office: false },
-            { id: 5, name: 'Cabang Bogor', code: 'CAB-BGR', is_head_office: false },
-          ]
-        }
-        setBranches(branchList)
+      setBranches(branchList)
 
-        // Read saved branch or default to first branch (Jakarta)
-        const saved = localStorage.getItem('branch_focus_id')
-        const initialId = saved && saved !== 'all' && branchList.some(b => b.id === Number(saved))
-          ? Number(saved)
-          : branchList[0]?.id || 1
+      // Read saved branch or default to first available branch
+      const saved = localStorage.getItem('branch_focus_id')
+      const initialId = saved && saved !== 'all' && branchList.some(b => b.id === Number(saved))
+        ? Number(saved)
+        : branchList[0]?.id || 1
 
-        setSelectedBranchId(initialId)
-        localStorage.setItem('branch_focus_id', initialId.toString())
-        document.cookie = `branch_focus_id=${initialId}; path=/; max-age=31536000; SameSite=Lax`
-      } catch (err) {
-        console.error('Failed to load branches:', err)
-      } finally {
-        setLoading(false)
-      }
+      setSelectedBranchId(initialId)
+      localStorage.setItem('branch_focus_id', initialId.toString())
+      document.cookie = `branch_focus_id=${initialId}; path=/; max-age=31536000; SameSite=Lax`
+    } catch (err) {
+      console.error('Failed to load branches:', err)
+      const fallbackList = [{ id: 1, name: 'Kantor Pusat Jakarta', code: 'HO-JKT', is_head_office: true }]
+      setBranches(fallbackList)
+      setSelectedBranchId(1)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchBranches()
   }, [])
 
@@ -89,7 +78,7 @@ export function BranchFocusSwitcher({ currentRole = 'admin' }: BranchFocusSwitch
   const activeBranch = branches.find((b) => b.id === selectedBranchId)
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (open) fetchBranches() }}>
       <DropdownMenuTrigger
         className={cn(
           buttonVariants({ variant: 'outline', size: 'sm' }),

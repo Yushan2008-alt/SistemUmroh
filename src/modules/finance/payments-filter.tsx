@@ -5,10 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/navigation'
 import { useState, useTransition } from 'react'
 
+import type { Role } from '@/types/database.types'
+
 interface PaymentsFilterProps {
   currentSearch?: string
   currentStatus?: string
   currentType?: string
+  userRole?: Role
   stats?: {
     count_paid: number
     count_partial: number
@@ -21,6 +24,7 @@ export function PaymentsFilter({
   currentSearch = '',
   currentStatus = 'all',
   currentType = 'all',
+  userRole,
   stats,
 }: PaymentsFilterProps) {
   const router = useRouter()
@@ -64,30 +68,48 @@ export function PaymentsFilter({
     })
   }
 
-  const statusTabs = [
-    { id: 'all', label: 'Semua Tagihan', count: stats?.total_invoices },
-    {
-      id: 'paid',
-      label: 'Lunas',
-      count: stats?.count_paid,
-      icon: CheckCircle2,
-      activeColor: 'bg-emerald-600 text-white',
-    },
-    {
-      id: 'partial',
-      label: 'Sebagian',
-      count: stats?.count_partial,
-      icon: Clock,
-      activeColor: 'bg-amber-600 text-white',
-    },
-    {
-      id: 'unpaid',
-      label: 'Belum Bayar',
-      count: stats?.count_unpaid,
-      icon: AlertCircle,
-      activeColor: 'bg-rose-600 text-white',
-    },
-  ]
+  const statusTabs =
+    userRole === 'pilgrim'
+      ? [
+          {
+            id: 'unpaid',
+            label: 'Belum Bayar',
+            count: stats?.count_unpaid,
+            icon: AlertCircle,
+            activeColor: 'bg-rose-600 text-white',
+          },
+          {
+            id: 'paid',
+            label: 'Lunas',
+            count: stats?.count_paid,
+            icon: CheckCircle2,
+            activeColor: 'bg-emerald-600 text-white',
+          },
+        ]
+      : [
+          { id: 'all', label: userRole === 'agent' ? 'Semua Tagihan Referral' : 'Semua Tagihan', count: stats?.total_invoices },
+          {
+            id: 'paid',
+            label: 'Lunas',
+            count: stats?.count_paid,
+            icon: CheckCircle2,
+            activeColor: 'bg-emerald-600 text-white',
+          },
+          {
+            id: 'partial',
+            label: 'Sebagian',
+            count: stats?.count_partial,
+            icon: Clock,
+            activeColor: 'bg-amber-600 text-white',
+          },
+          {
+            id: 'unpaid',
+            label: 'Belum Bayar',
+            count: stats?.count_unpaid,
+            icon: AlertCircle,
+            activeColor: 'bg-rose-600 text-white',
+          },
+        ]
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-4">
@@ -130,14 +152,16 @@ export function PaymentsFilter({
             <option value="full_payment">Pelunasan Penuh</option>
           </select>
 
-          {/* Generate Tagihan Massal Button */}
-          <a
-            href="/payments/generate-massal"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Generate Cicilan Massal</span>
-          </a>
+          {/* Generate Tagihan Massal Button (Staff Only) */}
+          {userRole !== 'pilgrim' && userRole !== 'agent' && (
+            <a
+              href="/payments/generate-massal"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Generate Cicilan Massal</span>
+            </a>
+          )}
 
           {(currentStatus !== 'all' || currentType !== 'all' || currentSearch !== '') && (
             <button

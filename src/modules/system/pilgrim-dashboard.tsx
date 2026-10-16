@@ -28,6 +28,7 @@ import { toast } from 'sonner'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { getPilgrimDashboardData, registerPilgrimToPackage, type PilgrimDashboardData } from './dashboard.actions'
+import { PackageRegistrationWizardModal } from './package-registration-wizard'
 import { MidtransPaymentModal } from '@/modules/finance'
 import type { PaymentListItem } from '@/modules/finance/types'
 
@@ -35,6 +36,7 @@ export function PilgrimDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<PilgrimDashboardData | null>(null)
   const [registeringPkgId, setRegisteringPkgId] = useState<number | null>(null)
+  const [selectedPackageForWizard, setSelectedPackageForWizard] = useState<any | null>(null)
   const [activePaymentDoc, setActivePaymentDoc] = useState<PaymentListItem | null>(null)
 
   const loadDashboardData = async () => {
@@ -258,24 +260,14 @@ export function PilgrimDashboard() {
                       </div>
                     </div>
 
-                    {/* Action Button */}
+                    {/* Action Button: Opens 5-Step Registration Wizard */}
                     <button
                       type="button"
-                      onClick={() => handleSelectPackage(p.id)}
-                      disabled={registeringPkgId !== null}
+                      onClick={() => setSelectedPackageForWizard(p)}
                       className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 group-hover:shadow-emerald-600/20"
                     >
-                      {isProcessingThis ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Mendaftarkan Kursi...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Pilih &amp; Daftar Paket Ini</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
+                      <span>Pilih &amp; Daftar Paket Ini</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </CardContent>
                 </Card>
@@ -533,6 +525,20 @@ export function PilgrimDashboard() {
             </Card>
           </div>
         </>
+      )}
+
+      {/* 5-Step Package Registration Wizard Modal */}
+      {selectedPackageForWizard && (
+        <PackageRegistrationWizardModal
+          pkg={selectedPackageForWizard}
+          initialPilgrim={data?.pilgrim}
+          isOpen={!!selectedPackageForWizard}
+          onClose={() => setSelectedPackageForWizard(null)}
+          onSuccess={() => {
+            loadDashboardData()
+            setSelectedPackageForWizard(null)
+          }}
+        />
       )}
 
       {/* Payment Modal Integration for Direct Payment on Dashboard */}

@@ -58,10 +58,28 @@ export default async function PilgrimsPage({ searchParams }: PageProps) {
     }
   }
 
+  let agentId: number | null = null
+
+  if (userRole === 'agent' && user) {
+    const admin = (await import('@/lib/supabase/admin')).createAdminClient() as any
+    const { data: ag } = await admin
+      .from('agents')
+      .select('id, branch_id')
+      .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+      .maybeSingle()
+    if (ag) {
+      agentId = ag.id
+      activeBranchId = ag.branch_id
+    } else {
+      agentId = -1 // No records if agent profile not linked yet
+    }
+  }
+
   const { data: pilgrims } = await getPilgrims({
     search: q,
     status,
     branchId: activeBranchId,
+    agentId,
   })
 
   return (

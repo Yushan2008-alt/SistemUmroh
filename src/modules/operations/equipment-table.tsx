@@ -16,6 +16,7 @@ import {
   Check,
   Package,
 } from 'lucide-react'
+import type { Role } from '@/types/database.types'
 import type { EquipmentDistributionItem } from './types'
 import { deleteEquipment, quickHandOverEquipment } from './equipment.actions'
 
@@ -23,12 +24,14 @@ interface EquipmentTableProps {
   initialEquipment: EquipmentDistributionItem[]
   currentSearch?: string
   currentStatus?: string
+  userRole?: Role
 }
 
 export function EquipmentTable({
   initialEquipment,
   currentSearch = '',
   currentStatus = 'all',
+  userRole,
 }: EquipmentTableProps) {
   const router = useRouter()
   const [equipment, setEquipment] = useState<EquipmentDistributionItem[]>(initialEquipment)
@@ -136,13 +139,15 @@ export function EquipmentTable({
             Manajemen dan rekam distribusi koper, tas paspor, kain ihram, dan seragam batik jamaah.
           </p>
         </div>
-        <Link
-          href="/equipment/create"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Perlengkapan
-        </Link>
+        {userRole !== 'pilgrim' && (
+          <Link
+            href="/equipment/create"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Perlengkapan
+          </Link>
+        )}
       </div>
 
       {/* Error Message */}
@@ -224,7 +229,7 @@ export function EquipmentTable({
                   <th className="px-5 py-3.5">Qty</th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5">Tanggal Serah</th>
-                  <th className="px-5 py-3.5 text-right">Aksi</th>
+                  {userRole !== 'pilgrim' && <th className="px-5 py-3.5 text-right">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -268,41 +273,43 @@ export function EquipmentTable({
                       {formatDate(item.handed_at)}
                     </td>
 
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {item.status === 'pending' && (
+                    {userRole !== 'pilgrim' && (
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {item.status === 'pending' && (
+                            <button
+                              type="button"
+                              onClick={() => handleQuickHandOver(item.id)}
+                              disabled={loadingActionId === item.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                              title="1-Click Konfirmasi Serah Barang"
+                            >
+                              {loadingActionId === item.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Check className="w-3 h-3" />
+                              )}
+                              Serahkan
+                            </button>
+                          )}
+                          <Link
+                            href={`/equipment/${item.id}/edit`}
+                            className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors"
+                            title="Edit Perlengkapan"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Link>
                           <button
                             type="button"
-                            onClick={() => handleQuickHandOver(item.id)}
-                            disabled={loadingActionId === item.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                            title="1-Click Konfirmasi Serah Barang"
+                            onClick={() => setDeleteConfirmItem(item)}
+                            className="p-1.5 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            title="Hapus Entri"
                           >
-                            {loadingActionId === item.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Check className="w-3 h-3" />
-                            )}
-                            Serahkan
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
-                        <Link
-                          href={`/equipment/${item.id}/edit`}
-                          className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors"
-                          title="Edit Perlengkapan"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteConfirmItem(item)}
-                          className="p-1.5 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Hapus Entri"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -313,15 +320,19 @@ export function EquipmentTable({
             <Luggage className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-foreground">Belum ada data perlengkapan</h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Catat distribusi koper, tas paspor, seragam, dan kain ihram untuk setiap jamaah.
+              {userRole === 'pilgrim'
+                ? 'Belum ada data perlengkapan ibadah untuk Anda.'
+                : 'Catat distribusi koper, tas paspor, seragam, dan kain ihram untuk setiap jamaah.'}
             </p>
-            <Link
-              href="/equipment/create"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Catat Distribusi Baru
-            </Link>
+            {userRole !== 'pilgrim' && (
+              <Link
+                href="/equipment/create"
+                className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Catat Distribusi Baru
+              </Link>
+            )}
           </div>
         )}
       </div>

@@ -11,6 +11,7 @@ import type {
   RecordManualPaymentData,
   MassInstallmentParams,
   MidtransSnapResult,
+  MidtransPaymentDetails,
 } from './types'
 
 /**
@@ -63,6 +64,34 @@ export async function getPayments(
       query = query.eq('type', params.type)
     }
 
+    if (params?.agentId === -1) {
+      return { data: [] }
+    }
+
+    if (params?.agentId && params.agentId > 0) {
+      const { data: regRows } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('agent_id', params.agentId)
+      const regIds = (regRows || []).map((r: any) => r.id)
+      if (regIds.length === 0) {
+        return { data: [] }
+      }
+      query = query.in('registration_id', regIds)
+    }
+
+    if (params?.pilgrimId) {
+      const { data: regRows } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('pilgrim_id', params.pilgrimId)
+      const regIds = (regRows || []).map((r: any) => r.id)
+      if (regIds.length === 0) {
+        return { data: [] }
+      }
+      query = query.in('registration_id', regIds)
+    }
+
     const { data, error } = await query
 
     if (error) {
@@ -106,12 +135,134 @@ export async function getPayments(
 }
 
 /**
- * Get aggregate cashier financial statistics
+ * Get single payment by ID with full relations
  */
-export async function getPaymentStats(): Promise<PaymentStats> {
+export async function getPaymentById(
+  paymentId: number
+): Promise<{ data: PaymentListItem | null; error?: string }> {
   try {
     const supabase = createAdminClient() as any
-    const { data, error } = await supabase.from('payments').select('amount, paid_amount, status')
+    const { data, error } = await supabase
+      .from('payments')
+      .select(`
+        *,
+        registrations (
+          id,
+          code,
+          status,
+          total_price,
+          registered_at,
+          pilgrims (
+            id,
+            code,
+            name,
+            phone,
+            nik,
+            passport_number
+          ),
+          packages (
+            id,
+            name,
+            departure_date,
+            price
+          )
+        ),
+        branches (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq('id', paymentId)
+      .maybeSingle()
+
+    if (error || !data) {
+      return { data: null, error: error?.message || 'Data tagihan tidak ditemukan' }
+    }
+
+    const amount = Number(data.amount) || 0
+    const paidAmount = Number(data.paid_amount) || 0
+    const remainingBalance = Math.max(0, amount - paidAmount)
+
+    return {
+      data: {
+        ...data,
+        amount,
+        paid_amount: paidAmount,
+        remaining_balance: remainingBalance,
+      },
+    }
+  } catch (err: any) {
+    console.error('getPaymentById error:', err)
+    return { data: null, error: err.message || 'Terjadi kesalahan sistem' }
+  }
+}
+
+/**
+ * Get aggregate cashier financial statistics
+ */
+export async function getPaymentStats(params?: { pilgrimId?: number; agentId?: number | null }): Promise<PaymentStats> {
+  try {
+    const supabase = createAdminClient() as any
+
+    if (params?.agentId === -1) {
+      return {
+        total_billed: 0,
+        total_collected: 0,
+        total_remaining: 0,
+        collection_ratio: 0,
+        total_invoices: 0,
+        count_paid: 0,
+        count_partial: 0,
+        count_unpaid: 0,
+      }
+    }
+
+    let query = supabase.from('payments').select('amount, paid_amount, status, registration_id')
+
+    if (params?.agentId && params.agentId > 0) {
+      const { data: regRows } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('agent_id', params.agentId)
+      const regIds = (regRows || []).map((r: any) => r.id)
+      if (regIds.length === 0) {
+        return {
+          total_billed: 0,
+          total_collected: 0,
+          total_remaining: 0,
+          collection_ratio: 0,
+          total_invoices: 0,
+          count_paid: 0,
+          count_partial: 0,
+          count_unpaid: 0,
+        }
+      }
+      query = query.in('registration_id', regIds)
+    }
+
+    if (params?.pilgrimId) {
+      const { data: regRows } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('pilgrim_id', params.pilgrimId)
+      const regIds = (regRows || []).map((r: any) => r.id)
+      if (regIds.length === 0) {
+        return {
+          total_billed: 0,
+          total_collected: 0,
+          total_remaining: 0,
+          collection_ratio: 0,
+          total_invoices: 0,
+          count_paid: 0,
+          count_partial: 0,
+          count_unpaid: 0,
+        }
+      }
+      query = query.in('registration_id', regIds)
+    }
+
+    const { data, error } = await query
 
     if (error || !data) {
       return {
@@ -212,7 +363,8 @@ export async function createMidtransSnapToken(
       return { success: false, message: 'Tagihan ini telah lunas.' }
     }
 
-    const orderId = `PAY-${payment.id}-${payment.code}-${Date.now().toString().slice(-4)}`
+    const cleanCode = (payment.code || '').replace(/[^a-zA-Z0-9]/g, '')
+    const orderId = `PAY-${payment.id}-${cleanCode}-${Date.now().toString().slice(-4)}`
     const pilgrim = payment.registrations?.pilgrims
     const packageName = payment.registrations?.packages?.name || 'Paket Umroh'
 
@@ -220,7 +372,7 @@ export async function createMidtransSnapToken(
     if (isMidtransConfigured()) {
       try {
         const snap = getMidtransSnap()
-        const parameter = {
+        const parameter: any = {
           transaction_details: {
             order_id: orderId,
             gross_amount: Math.round(remainingToPay),
@@ -232,13 +384,17 @@ export async function createMidtransSnapToken(
           },
           item_details: [
             {
-              id: payment.code,
+              id: String(payment.id),
               price: Math.round(remainingToPay),
               quantity: 1,
               name: `${payment.type.toUpperCase()}: ${packageName}`.slice(0, 50),
             },
           ],
-          enabled_payments: (channel && {
+        }
+
+        // When channel is specified, filter enabled_payments. Otherwise, show all channels.
+        if (channel) {
+          const channelMap: Record<string, string[]> = {
             dana: ['dana', 'qris', 'gopay'],
             gopay: ['gopay', 'qris'],
             shopeepay: ['shopeepay', 'qris'],
@@ -248,18 +404,10 @@ export async function createMidtransSnapToken(
             bri_va: ['bri_va'],
             permata_va: ['permata_va'],
             qris: ['qris'],
-          }[channel]) || [
-            'bca_va',
-            'bni_va',
-            'bri_va',
-            'permata_va',
-            'echannel',
-            'other_va',
-            'gopay',
-            'shopeepay',
-            'qris',
-            'credit_card',
-          ],
+          }
+          if (channelMap[channel]) {
+            parameter.enabled_payments = channelMap[channel]
+          }
         }
 
         const transaction = await snap.createTransaction(parameter)
@@ -413,7 +561,12 @@ export async function handleMidtransSnapSuccess(
 export async function syncMidtransTransactionStatus(
   paymentId: number,
   orderId: string
-): Promise<{ success: boolean; status?: string; message: string }> {
+): Promise<{
+  success: boolean
+  status?: string
+  message: string
+  details?: MidtransPaymentDetails
+}> {
   try {
     if (!isMidtransConfigured()) {
       return {
@@ -428,6 +581,29 @@ export async function syncMidtransTransactionStatus(
     const transactionStatus = statusResponse.transaction_status
     const fraudStatus = statusResponse.fraud_status
 
+    // Extract QR code & actions
+    const qrAction = statusResponse.actions?.find(
+      (a: any) => a.name === 'generate-qr-code' || a.name === 'generate-qr-code-v2'
+    )
+    const qrCodeUrl = qrAction?.url || statusResponse.qr_code_url || null
+    const deeplinkAction = statusResponse.actions?.find((a: any) => a.name === 'deeplink-redirect')
+    const deeplinkUrl = deeplinkAction?.url || null
+
+    const details: MidtransPaymentDetails = {
+      payment_type: statusResponse.payment_type,
+      gross_amount: statusResponse.gross_amount,
+      va_numbers: statusResponse.va_numbers,
+      bill_key: statusResponse.bill_key,
+      biller_code: statusResponse.biller_code,
+      permata_va_number: statusResponse.permata_va_number,
+      transaction_time: statusResponse.transaction_time,
+      qr_code_url: qrCodeUrl,
+      qr_string: statusResponse.qr_string,
+      deeplink_url: deeplinkUrl,
+      transaction_id: statusResponse.transaction_id,
+      actions: statusResponse.actions,
+    }
+
     if (
       transactionStatus === 'settlement' ||
       (transactionStatus === 'capture' && fraudStatus === 'accept')
@@ -438,12 +614,13 @@ export async function syncMidtransTransactionStatus(
         Number(statusResponse.gross_amount),
         statusResponse.payment_type
       )
-      return { success: true, status: 'paid', message: res.message }
+      return { success: true, status: 'paid', message: res.message, details }
     } else if (transactionStatus === 'pending') {
       return {
         success: true,
         status: 'pending',
         message: 'Transaksi masih berstatus PENDING di Midtrans (menunggu pembayaran jamaah).',
+        details,
       }
     } else if (
       transactionStatus === 'deny' ||
@@ -454,6 +631,7 @@ export async function syncMidtransTransactionStatus(
         success: false,
         status: transactionStatus,
         message: `Transaksi di Midtrans berstatus: ${transactionStatus.toUpperCase()}`,
+        details,
       }
     }
 
@@ -461,10 +639,136 @@ export async function syncMidtransTransactionStatus(
       success: true,
       status: transactionStatus,
       message: `Status transaksi Midtrans: ${transactionStatus}`,
+      details,
     }
   } catch (err: any) {
+    const is404 =
+      err?.ApiResponse?.status_code === '404' ||
+      err?.status === 404 ||
+      err?.message?.includes('404') ||
+      err?.ApiResponse?.status_message?.includes("doesn't exist")
+
+    if (is404) {
+      return {
+        success: true,
+        status: 'awaiting_payment_selection',
+        message: 'Menunggu pemilihan metode pembayaran di Midtrans Snap.',
+      }
+    }
+
     console.error('syncMidtransTransactionStatus error:', err)
     return { success: false, message: err.message || 'Gagal menyinkronkan status dengan Midtrans' }
+  }
+}
+
+/**
+ * Create a direct Midtrans charge for Sandbox testing (QRIS or Virtual Account)
+ */
+export async function createDirectMidtransCharge(
+  paymentId: number,
+  method: 'qris' | 'bca_va' | 'bri_va' | 'bni_va' | 'mandiri_bill'
+): Promise<{
+  success: boolean
+  message: string
+  order_id?: string
+  details?: MidtransPaymentDetails
+}> {
+  try {
+    if (!isMidtransConfigured()) {
+      return {
+        success: false,
+        message: 'Midtrans Server Key belum dikonfigurasi.',
+      }
+    }
+
+    const supabase = createAdminClient() as any
+    const { data: payment, error } = await supabase
+      .from('payments')
+      .select('*, registrations(code, pilgrims(name, phone), packages(name))')
+      .eq('id', paymentId)
+      .single()
+
+    if (error || !payment) {
+      return { success: false, message: 'Data tagihan tidak ditemukan.' }
+    }
+
+    const amount = Number(payment.amount) || 0
+    const paidAmount = Number(payment.paid_amount) || 0
+    const remainingToPay = Math.max(0, amount - paidAmount)
+
+    if (remainingToPay <= 0 || payment.status === 'paid') {
+      return { success: false, message: 'Tagihan ini telah lunas.' }
+    }
+
+    const cleanCode = (payment.code || '').replace(/[^a-zA-Z0-9]/g, '')
+    const orderId = `PAY-${payment.id}-${cleanCode}-${Date.now().toString().slice(-4)}`
+    const pilgrim = payment.registrations?.pilgrims
+    const coreApi = getMidtransCoreApi()
+
+    const chargeParams: any = {
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: Math.round(remainingToPay),
+      },
+      customer_details: {
+        first_name: pilgrim?.name || 'Jamaah',
+        email: 'jamaah@travel.com',
+        phone: pilgrim?.phone || '08123456789',
+      },
+    }
+
+    if (method === 'qris') {
+      chargeParams.payment_type = 'qris'
+      chargeParams.qris = { acquirer: 'gopay' }
+    } else if (method === 'bca_va') {
+      chargeParams.payment_type = 'bank_transfer'
+      chargeParams.bank_transfer = { bank: 'bca' }
+    } else if (method === 'bri_va') {
+      chargeParams.payment_type = 'bank_transfer'
+      chargeParams.bank_transfer = { bank: 'bri' }
+    } else if (method === 'bni_va') {
+      chargeParams.payment_type = 'bank_transfer'
+      chargeParams.bank_transfer = { bank: 'bni' }
+    } else if (method === 'mandiri_bill') {
+      chargeParams.payment_type = 'echannel'
+      chargeParams.echannel = {
+        bill_info1: 'Pembayaran Tagihan',
+        bill_info2: payment.code,
+      }
+    }
+
+    const chargeRes = await coreApi.charge(chargeParams)
+
+    const qrAction = chargeRes.actions?.find(
+      (a: any) => a.name === 'generate-qr-code' || a.name === 'generate-qr-code-v2'
+    )
+    const qrCodeUrl = qrAction?.url || chargeRes.qr_code_url || null
+    const deeplinkAction = chargeRes.actions?.find((a: any) => a.name === 'deeplink-redirect')
+
+    const details: MidtransPaymentDetails = {
+      payment_type: chargeRes.payment_type,
+      gross_amount: chargeRes.gross_amount,
+      va_numbers: chargeRes.va_numbers,
+      bill_key: chargeRes.bill_key,
+      biller_code: chargeRes.biller_code,
+      permata_va_number: chargeRes.permata_va_number,
+      transaction_time: chargeRes.transaction_time,
+      qr_code_url: qrCodeUrl,
+      qr_string: chargeRes.qr_string,
+      deeplink_url: deeplinkAction?.url || null,
+      transaction_id: chargeRes.transaction_id,
+      actions: chargeRes.actions,
+    }
+
+    return {
+      success: true,
+      message: 'Berhasil membuat sesi transaksi Midtrans Sandbox.',
+      order_id: orderId,
+      details,
+    }
+  } catch (err: any) {
+    console.error('createDirectMidtransCharge error:', err)
+    return { success: false, message: err.message || 'Gagal membuat sesi transaksi charge' }
   }
 }
 
@@ -476,11 +780,19 @@ export async function recordManualPayment(
   data: RecordManualPaymentData
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const supabase = createAdminClient() as any
+    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, message: 'Akses ditolak: Hanya staf kasir yang berhak mencatat pembayaran manual.' }
+      }
+    }
+
     if (!data.amount || data.amount <= 0) {
       return { success: false, message: 'Nominal pembayaran harus lebih besar dari 0.' }
     }
-
-    const supabase = createAdminClient() as any
 
     const { data: payment, error: fetchErr } = await supabase
       .from('payments')
@@ -542,6 +854,14 @@ export async function generateMassInstallments(
 ): Promise<{ success: boolean; count: number; message: string }> {
   try {
     const supabase = createAdminClient() as any
+    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
+        return { success: false, count: 0, message: 'Akses ditolak: Hanya staf yang berhak menerbitkan cicilan massal.' }
+      }
+    }
 
     // 1. Fetch all active registrations in the package
     const { data: registrations, error: regError } = await supabase

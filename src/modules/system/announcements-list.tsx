@@ -8,11 +8,14 @@ import { deleteAnnouncement } from './announcements.actions'
 import { formatDateTime } from '@/lib/utils'
 import { Search, Megaphone, Plus, Edit2, Trash2, Radio, Loader2 } from 'lucide-react'
 
+import type { Role } from '@/types/database.types'
+
 interface AnnouncementListProps {
   initialAnnouncements: AnnouncementWithRelations[]
+  userRole?: Role
 }
 
-export function AnnouncementList({ initialAnnouncements }: AnnouncementListProps) {
+export function AnnouncementList({ initialAnnouncements, userRole }: AnnouncementListProps) {
   const router = useRouter()
   const [announcements, setAnnouncements] = useState<AnnouncementWithRelations[]>(initialAnnouncements)
   const [searchQuery, setSearchQuery] = useState('')
@@ -125,13 +128,15 @@ export function AnnouncementList({ initialAnnouncements }: AnnouncementListProps
           </select>
         </div>
 
-        <Link
-          href="/announcements/create"
-          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-xs inline-flex items-center justify-center gap-2 transition-colors shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Tambah Pengumuman</span>
-        </Link>
+        {userRole !== 'pilgrim' && (
+          <Link
+            href="/announcements/create"
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-xs inline-flex items-center justify-center gap-2 transition-colors shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Tambah Pengumuman</span>
+          </Link>
+        )}
       </div>
 
       {/* Table */}
@@ -145,17 +150,21 @@ export function AnnouncementList({ initialAnnouncements }: AnnouncementListProps
                 <th className="px-4 py-3.5">Cabang</th>
                 <th className="px-4 py-3.5">Status Publikasi</th>
                 <th className="px-4 py-3.5">Mulai Tayang</th>
-                <th className="px-5 py-3.5 text-right">Aksi</th>
+                {userRole !== 'pilgrim' && <th className="px-5 py-3.5 text-right">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
+                  <td colSpan={userRole === 'pilgrim' ? 5 : 6} className="px-5 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center">
                       <Megaphone className="h-10 w-10 text-muted-foreground/40 mb-2" />
                       <p className="font-semibold text-foreground">Belum ada pengumuman</p>
-                      <p className="text-xs">Buat pengumuman untuk menyampaikan informasi penting ke staf, agen, atau jamaah.</p>
+                      <p className="text-xs">
+                        {userRole === 'pilgrim'
+                          ? 'Belum ada pengumuman perjalanan resmi untuk Anda saat ini.'
+                          : 'Buat pengumuman untuk menyampaikan informasi penting ke staf, agen, atau jamaah.'}
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -202,29 +211,31 @@ export function AnnouncementList({ initialAnnouncements }: AnnouncementListProps
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs text-muted-foreground">
                         {a.publish_at ? formatDateTime(a.publish_at) : '-'}
                       </td>
-                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/announcements/${a.id}/edit`}
-                            className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(a.id, a.title)}
-                            disabled={deletingId === a.id}
-                            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors disabled:opacity-50"
-                            title="Hapus"
-                          >
-                            {deletingId === a.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
+                      {userRole !== 'pilgrim' && (
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/announcements/${a.id}/edit`}
+                              className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(a.id, a.title)}
+                              disabled={deletingId === a.id}
+                              className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors disabled:opacity-50"
+                              title="Hapus"
+                            >
+                              {deletingId === a.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })

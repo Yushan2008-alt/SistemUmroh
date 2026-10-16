@@ -4,15 +4,17 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Eye, Edit3, Trash2, Calendar, UserCheck, AlertTriangle } from 'lucide-react'
 import type { RegistrationListItem } from './types'
+import type { Role } from '@/types/database.types'
 import { deleteRegistration } from './registrations.actions'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 interface RegistrationTableProps {
   initialData: RegistrationListItem[]
+  userRole?: Role
 }
 
-export function RegistrationTable({ initialData }: RegistrationTableProps) {
+export function RegistrationTable({ initialData, userRole }: RegistrationTableProps) {
   const router = useRouter()
   const [data, setData] = useState(initialData)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -192,14 +194,16 @@ export function RegistrationTable({ initialData }: RegistrationTableProps) {
                         <Eye className="h-3.5 w-3.5" />
                         <span>Detail</span>
                       </Link>
-                      <button
-                        onClick={() => setConfirmModal({ open: true, item })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-                        title="Hapus Pendaftaran"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Hapus</span>
-                      </button>
+                      {userRole !== 'pilgrim' && userRole !== 'agent' && (
+                        <button
+                          onClick={() => setConfirmModal({ open: true, item })}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                          title="Hapus Pendaftaran"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Hapus</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

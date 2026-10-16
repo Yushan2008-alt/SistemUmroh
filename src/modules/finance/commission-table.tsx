@@ -6,12 +6,15 @@ import { CommissionStatusModal } from './commission-status-modal'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Search, Filter, Coins, CheckCircle, Clock, XCircle, DollarSign } from 'lucide-react'
 
+import type { Role } from '@/types/database.types'
+
 interface CommissionTableProps {
   initialCommissions: CommissionWithRelations[]
   agents: { id: number; name: string }[]
+  userRole?: Role
 }
 
-export function CommissionTable({ initialCommissions, agents }: CommissionTableProps) {
+export function CommissionTable({ initialCommissions, agents, userRole }: CommissionTableProps) {
   const [commissions, setCommissions] = useState<CommissionWithRelations[]>(initialCommissions)
   const [statusFilter, setStatusFilter] = useState('all')
   const [agentFilter, setAgentFilter] = useState('all')
@@ -103,18 +106,20 @@ export function CommissionTable({ initialCommissions, agents }: CommissionTableP
               <option value="cancelled">Dibatalkan (Cancelled)</option>
             </select>
 
-            <select
-              value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden max-w-[200px]"
-            >
-              <option value="all">Semua Agen</option>
-              {agents.map((ag) => (
-                <option key={ag.id} value={ag.id}>
-                  {ag.name}
-                </option>
-              ))}
-            </select>
+            {userRole !== 'agent' && (
+              <select
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden max-w-[200px]"
+              >
+                <option value="all">Semua Agen</option>
+                {agents.map((ag) => (
+                  <option key={ag.id} value={ag.id}>
+                    {ag.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -186,7 +191,11 @@ export function CommissionTable({ initialCommissions, agents }: CommissionTableP
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                        {isFinal ? (
+                        {userRole === 'agent' ? (
+                          <span className="text-xs text-muted-foreground italic">
+                            {c.status === 'paid' ? 'Dicairkan' : 'Dikelola Staff'}
+                          </span>
+                        ) : isFinal ? (
                           <span className="text-xs font-semibold px-2 py-1 rounded bg-muted text-muted-foreground">
                             Final
                           </span>
@@ -208,16 +217,18 @@ export function CommissionTable({ initialCommissions, agents }: CommissionTableP
         </div>
       </div>
 
-      {/* Status Modal */}
-      <CommissionStatusModal
-        commission={selectedCommission}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setSelectedCommission(null)
-        }}
-        onSuccess={handleSuccess}
-      />
+      {/* Status Modal (Staff Only) */}
+      {userRole !== 'agent' && (
+        <CommissionStatusModal
+          commission={selectedCommission}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            setSelectedCommission(null)
+          }}
+          onSuccess={handleSuccess}
+        />
+      )}
     </div>
   )
 }

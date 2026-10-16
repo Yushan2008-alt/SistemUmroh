@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getPackageById, getPackageFormData } from '@/modules/operations'
 import { PackageForm } from '@/modules/operations'
+import { createClient } from '@/lib/supabase/server'
 
 interface EditPackagePageProps {
   params: Promise<{ id: string }>
@@ -12,6 +13,19 @@ export const metadata = {
 }
 
 export default async function EditPackagePage({ params }: EditPackagePageProps) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: profile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profile?.role === 'agent' || profile?.role === 'pilgrim') {
+      redirect('/packages')
+    }
+  }
+
   const { id } = await params
   const pkgId = parseInt(id, 10)
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -19,12 +19,15 @@ import {
 } from 'lucide-react'
 import type { PackageItem } from './types'
 import { deletePackage } from './packages.actions'
+import type { Role } from '@/types/database.types'
+import { PackageRegistrationWizardModal } from '@/modules/system'
 
 interface PackagesTableProps {
   initialPackages: PackageItem[]
   currentSearch?: string
   currentType?: string
   currentStatus?: string
+  userRole?: Role
 }
 
 export function PackagesTable({
@@ -32,9 +35,25 @@ export function PackagesTable({
   currentSearch = '',
   currentType = 'all',
   currentStatus = 'all',
+  userRole,
 }: PackagesTableProps) {
   const router = useRouter()
   const [packages, setPackages] = useState<PackageItem[]>(initialPackages)
+  const [selectedPackageForWizard, setSelectedPackageForWizard] = useState<PackageItem | null>(null)
+
+  // Sync state when server re-fetches (e.g. branch focus changes or search filter changes)
+  useEffect(() => {
+    setPackages(initialPackages)
+  }, [initialPackages])
+
+  // Listen to branch change event to revalidate
+  useEffect(() => {
+    const handleBranchChange = () => {
+      router.refresh()
+    }
+    window.addEventListener('branch_focus_changed', handleBranchChange)
+    return () => window.removeEventListener('branch_focus_changed', handleBranchChange)
+  }, [router])
   const [search, setSearch] = useState(currentSearch)
   const [type, setType] = useState(currentType)
   const [status, setStatus] = useState(currentStatus)
@@ -144,16 +163,22 @@ export function PackagesTable({
             Paket Umroh &amp; Haji
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Katalog dan konfigurasi jadwal keberangkatan, akomodasi, dan kuota jamaah.
+            {userRole === 'pilgrim'
+              ? 'Daftar paket perjalanan ibadah Umroh dan Haji yang dapat Anda pilih.'
+              : userRole === 'agent'
+              ? 'Katalog paket perjalanan Umroh & Haji yang aktif dan tersedia untuk calon jamaah Anda.'
+              : 'Katalog dan konfigurasi jadwal keberangkatan, akomodasi, dan kuota jamaah.'}
           </p>
         </div>
-        <Link
-          href="/packages/create"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Paket
-        </Link>
+        {userRole !== 'pilgrim' && userRole !== 'agent' && (
+          <Link
+            href="/packages/create"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Paket
+          </Link>
+        )}
       </div>
 
       {/* Error Message if any */}
@@ -349,21 +374,41 @@ export function PackagesTable({
                           >
                             <Eye className="w-4 h-4" />
                           </Link>
-                          <Link
-                            href={`/packages/${pkg.id}/edit`}
-                            className="p-2 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors"
-                            title="Edit Paket"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmPackage(pkg)}
-                            className="p-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
-                            title="Hapus Paket"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {userRole === 'pilgrim' ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPackageForWizard(pkg)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors shrink-0"
+                            >
+                              <span>Pilih Paket</span>
+                            </button>
+                          ) : userRole === 'agent' ? (
+                            <Link
+                              href={`/registrations/create?package_id=${pkg.id}`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors shrink-0"
+                              title="Daftarkan calon jamaah referral ke paket ini"
+                            >
+                              <span>Daftarkan</span>
+                            </Link>
+                          ) : (
+                            <>
+                              <Link
+                                href={`/packages/${pkg.id}/edit`}
+                                className="p-2 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                title="Edit Paket"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmPackage(pkg)}
+                                className="p-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                title="Hapus Paket"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -377,15 +422,19 @@ export function PackagesTable({
             <PackageIcon className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-foreground">Belum ada paket ditemukan</h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Tambahkan paket perjalanan Umroh atau Haji untuk mulai membuka pendaftaran jamaah.
+              {userRole === 'pilgrim'
+                ? 'Belum ada paket perjalanan yang tersedia saat ini.'
+                : 'Tambahkan paket perjalanan Umroh atau Haji untuk mulai membuka pendaftaran jamaah.'}
             </p>
-            <Link
-              href="/packages/create"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Buat Paket Pertama
-            </Link>
+            {userRole !== 'pilgrim' && userRole !== 'agent' && (
+              <Link
+                href="/packages/create"
+                className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Buat Paket Pertama
+              </Link>
+            )}
           </div>
         )}
       </div>
@@ -432,6 +481,19 @@ export function PackagesTable({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 5-Step Package Registration Wizard Modal for Pilgrim */}
+      {selectedPackageForWizard && (
+        <PackageRegistrationWizardModal
+          pkg={selectedPackageForWizard}
+          isOpen={!!selectedPackageForWizard}
+          onClose={() => setSelectedPackageForWizard(null)}
+          onSuccess={() => {
+            setSelectedPackageForWizard(null)
+            router.push('/dashboard')
+          }}
+        />
       )}
     </div>
   )
