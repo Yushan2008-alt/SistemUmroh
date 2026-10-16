@@ -12,7 +12,7 @@ import {
 
 export function LandingHero() {
   return (
-    <section id="beranda" className="relative min-h-[520px] lg:min-h-[580px] flex items-center justify-center overflow-hidden bg-[#022318] border-b border-emerald-900/60">
+    <section id="beranda" className="relative min-h-[520px] lg:min-h-[580px] flex items-center justify-center overflow-hidden bg-emerald border-b border-emerald-200">
       {/* Background Image with High Priority for Mobile LCP Optimization */}
       <div className="absolute inset-0 z-0">
         <Image
