@@ -5,7 +5,6 @@ import { Menu, Bell, LogOut } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { BranchFocusSwitcher } from './BranchFocusSwitcher'
-import { DemoRoleSwitcher } from './DemoRoleSwitcher'
 import { UserNav } from './UserNav'
 import { Sidebar } from './Sidebar'
 import { createClient } from '@/lib/supabase/client'
@@ -52,9 +51,8 @@ export function Header({ userRole = 'super_admin', title = 'Sistem Manajemen Tra
         </h1>
       </div>
 
-      {/* Right: Demo Role Switcher, Branch Focus, User Nav & Prominent Logout in Top-Right Corner */}
+      {/* Right: Branch Focus (Admin Only), Notifications, User Nav & Prominent Logout */}
       <div className="flex items-center gap-2 sm:gap-3">
-        <DemoRoleSwitcher currentRole={userRole} />
         {userRole === 'admin' && <BranchFocusSwitcher currentRole={userRole} />}
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="h-4 w-4" />
