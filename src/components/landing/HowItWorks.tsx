@@ -37,8 +37,8 @@ export function HowItWorks() {
     <section id="cara-daftar" className="py-12 sm:py-16 md:py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
-          <span className="text-xs font-semibold text-emerald-800 tracking-wider uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
-            PROSES MUDAH & CEPAT
+          <span className="text-xs font-semibold text-[#0d7a64] tracking-wider uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80">
+            PROSES MUDAH &amp; CEPAT
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-stone-900 tracking-tight mt-3">
             4 Langkah Menuju Baitullah
@@ -54,14 +54,14 @@ export function HowItWorks() {
             return (
               <div
                 key={idx}
-                className="relative bg-stone-50/70 rounded-xl p-5 sm:p-6 border border-stone-200/90 flex flex-col justify-between hover:border-emerald-300 transition-all"
+                className="relative bg-stone-50/70 rounded-xl p-5 sm:p-6 border border-stone-200/90 flex flex-col justify-between hover:border-[#0d7a64]/40 transition-all"
               >
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-2xl font-black text-emerald-800/40">
+                    <span className="text-2xl font-black text-[#0d7a64]/30">
                       {item.step}
                     </span>
-                    <div className="w-10 h-10 rounded-lg bg-emerald-800 text-amber-300 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-[#0d7a64] text-white flex items-center justify-center shrink-0 shadow-xs">
                       <Icon className="w-5 h-5" />
                     </div>
                   </div>
@@ -80,11 +80,11 @@ export function HowItWorks() {
         {/* Quick CTA */}
         <div className="mt-10 sm:mt-12 text-center">
           <Link
-            href="#paket"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-emerald-800 text-white font-medium hover:bg-emerald-900 transition-colors shadow-sm text-sm"
+            href="#katalog"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#0d7a64] text-white font-medium hover:bg-[#0b6855] transition-colors shadow-xs text-sm min-h-[44px]"
           >
-            Mulai Pilih Paket Tersedia
-            <ArrowRight className="w-4 h-4 text-amber-300" />
+            <span>Mulai Pilih Paket Tersedia</span>
+            <ArrowRight className="w-4 h-4 text-emerald-100" />
           </Link>
         </div>
       </div>

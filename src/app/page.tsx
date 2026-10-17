@@ -160,7 +160,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-800 selection:text-white">
+    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-[#0d7a64] selection:text-white">
       {/* 1. Header with mobile navigation drawer */}
       <LandingHeader />
 

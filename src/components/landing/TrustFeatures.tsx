@@ -59,8 +59,8 @@ export function TrustFeatures() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 mb-3">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-[#0d7a64] border border-emerald-200/80 mb-3">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#0d7a64]" />
             STANDAR RESMI KEMENAG RI
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-stone-900 tracking-tight">
@@ -79,15 +79,15 @@ export function TrustFeatures() {
             return (
               <div
                 key={index}
-                className="bg-white rounded-xl p-5 sm:p-6 border border-stone-200 hover:border-emerald-300 hover:shadow-sm transition-all duration-200 flex flex-col justify-between"
+                className="bg-white rounded-xl p-5 sm:p-6 border border-stone-200 hover:border-[#0d7a64]/40 hover:shadow-sm transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
-                      <Icon className="w-5 h-5 text-emerald-700" />
+                    <div className="w-11 h-11 rounded-lg bg-emerald-50 text-[#0d7a64] flex items-center justify-center shrink-0 border border-emerald-100">
+                      <Icon className="w-5 h-5 text-[#0d7a64]" />
                     </div>
                     <div>
-                      <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider block">
+                      <span className="text-[11px] font-semibold text-[#0d7a64] uppercase tracking-wider block">
                         {item.subtitle}
                       </span>
                       <h3 className="text-base font-semibold text-stone-900 leading-snug">
@@ -104,21 +104,22 @@ export function TrustFeatures() {
           })}
         </div>
 
-        {/* Official Certifications Banner */}
-        <div className="mt-8 sm:mt-10 bg-emerald-900 text-white rounded-xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border border-emerald-800">
-          <div className="text-center sm:text-left">
-            <h4 className="text-base sm:text-lg font-bold text-emerald-50">
-              Mitra Terpercaya Penyelenggaraan Umroh & Haji Khusus
+        {/* Official Certifications Banner matching Login Page Theme */}
+        <div className="mt-8 sm:mt-10 bg-[#0d7a64] text-white rounded-xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border border-emerald-700/60 shadow-xs relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+          <div className="relative z-10 text-center sm:text-left">
+            <h4 className="text-base sm:text-lg font-bold text-white">
+              Mitra Terpercaya Penyelenggaraan Umroh &amp; Haji Khusus
             </h4>
-            <p className="text-xs sm:text-sm text-emerald-200 mt-1">
+            <p className="text-xs sm:text-sm text-emerald-100/90 mt-1">
               Terakreditasi A Komite Akreditasi Nasional (KAN) • IATA Accredited Agent • Anggota Asosiasi Amphuri / Himpuh
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-800 text-amber-300 border border-emerald-700">
+          <div className="relative z-10 flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/20 text-white border border-white/25">
               ★ Akreditasi A
             </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-800 text-emerald-100 border border-emerald-700">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-emerald-100 border border-white/20">
               IATA 15-3-0000
             </span>
           </div>
