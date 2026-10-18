@@ -81,15 +81,6 @@ export function LandingFooter() {
               </li>
               <li>
                 <Link
-                  href="#testimoni"
-                  className="hover:text-white transition-colors inline-flex items-center gap-1 text-emerald-100/90"
-                >
-                  <ChevronRight className="w-3.5 h-3.5 text-emerald-300" />
-                  Testimoni Jamaah
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/login"
                   className="hover:text-white transition-colors inline-flex items-center gap-1 font-semibold text-white"
                 >

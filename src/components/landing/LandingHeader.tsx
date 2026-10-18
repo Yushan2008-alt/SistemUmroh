@@ -22,7 +22,6 @@ export function LandingHeader() {
     { href: '#katalog', label: 'Paket Pilihan' },
     { href: '#keunggulan', label: '5 Pasti Umroh' },
     { href: '#cara-daftar', label: 'Cara Daftar' },
-    { href: '#testimoni', label: 'Testimoni' },
     { href: '#kontak', label: 'Kontak' },
   ]
 

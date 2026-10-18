@@ -6,7 +6,6 @@ import {
   TrustFeatures,
   PackageCatalog,
   HowItWorks,
-  TestimonialsSection,
   MobileStickyBar,
   LandingFooter,
 } from '@/components/landing'
@@ -179,9 +178,6 @@ export default async function HomePage() {
 
         {/* 5. How It Works - 4 Steps to Baitullah */}
         <HowItWorks />
-
-        {/* 6. Authentic Pilgrim Testimonials */}
-        <TestimonialsSection />
       </main>
 
       {/* 7. Footer */}
