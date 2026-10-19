@@ -1,4 +1,5 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { getPilgrimById, getPilgrimFormData } from '@/modules/pilgrims'
 import { PilgrimForm } from '@/modules/pilgrims'
 
@@ -12,6 +13,20 @@ export const metadata = {
 }
 
 export default async function EditPilgrimPage({ params }: EditPilgrimPageProps) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profile?.role === 'guide') {
+      redirect('/pilgrims')
+    }
+  }
+
   const { id } = await params
   const pilgrimId = parseInt(id, 10)
 

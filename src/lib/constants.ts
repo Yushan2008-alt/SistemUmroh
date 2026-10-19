@@ -223,6 +223,12 @@ export const NAVIGATION_GROUPS: NavGroup[] = [
         icon: Package,
         roles: ['agent'],
       },
+      {
+        title: 'Jadwal Manasik',
+        href: '/manasik',
+        icon: CalendarDays,
+        roles: ['agent'],
+      },
     ],
   },
 
@@ -275,6 +281,12 @@ export const NAVIGATION_GROUPS: NavGroup[] = [
     label: 'BIMBINGAN',
     roles: ['guide'],
     items: [
+      {
+        title: 'Profil Saya',
+        href: '/guides',
+        icon: BookOpen,
+        roles: ['guide'],
+      },
       {
         title: 'Jamaah Bimbingan',
         href: '/pilgrims',

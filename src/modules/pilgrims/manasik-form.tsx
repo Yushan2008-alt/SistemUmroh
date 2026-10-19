@@ -10,6 +10,8 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Building2,
+  BookOpen,
 } from 'lucide-react'
 import type {
   ManasikScheduleItem,
@@ -29,7 +31,10 @@ export function ManasikForm({ schedule, options, isEdit = false }: ManasikFormPr
 
   const [formData, setFormData] = useState<ManasikFormData>({
     branch_id: schedule?.branch_id || options.branches[0]?.id || 1,
-    package_id: schedule?.package_id || options.packages[0]?.id || 1,
+    package_id:
+      schedule?.package_id !== undefined
+        ? schedule.package_id
+        : (options.packages[0]?.id ?? null),
     guide_id: schedule?.guide_id || null,
     title: schedule?.title || '',
     date: schedule?.date ? schedule.date.split('T')[0] : '',
@@ -143,16 +148,16 @@ export function ManasikForm({ schedule, options, isEdit = false }: ManasikFormPr
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-              Paket Terkait <span className="text-rose-500">*</span>
+              Kantor Cabang Pelaksana <span className="text-rose-500">*</span>
             </label>
             <select
-              value={formData.package_id}
-              onChange={(e) => setFormData({ ...formData, package_id: Number(e.target.value) })}
+              value={formData.branch_id}
+              onChange={(e) => setFormData({ ...formData, branch_id: Number(e.target.value) })}
               className="w-full px-3.5 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
             >
-              {options.packages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {options.branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
                 </option>
               ))}
             </select>
@@ -160,7 +165,33 @@ export function ManasikForm({ schedule, options, isEdit = false }: ManasikFormPr
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-              Ustadz Pembimbing (Muthawif)
+              Paket Terkait (Target Jamaah)
+            </label>
+            <select
+              value={formData.package_id || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  package_id: e.target.value ? Number(e.target.value) : null,
+                })
+              }
+              className="w-full px-3.5 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            >
+              <option value="">-- Semua Jamaah Cabang (Manasik Akbar / Umum) --</option>
+              {options.packages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Pilih paket tertentu atau biarkan kosong untuk sesi manasik gabungan seluruh jamaah cabang.
+            </p>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+              Ustadz Pembimbing (Muthawif Ditugaskan)
             </label>
             <select
               value={formData.guide_id || ''}
@@ -172,13 +203,16 @@ export function ManasikForm({ schedule, options, isEdit = false }: ManasikFormPr
               }
               className="w-full px-3.5 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
             >
-              <option value="">-- Pilih Pembimbing --</option>
+              <option value="">-- Belum Ditugaskan / Pilih Muthawif --</option>
               {options.guides.map((g) => (
                 <option key={g.id} value={g.id}>
-                  {g.name} ({g.phone})
+                  👳 {g.name} ({g.phone || 'Tanpa HP'})
                 </option>
               ))}
             </select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Muthawif yang dipilih akan mendapatkan hak akses absensi dan jadwal ini akan tampil di portal pembimbingnya.
+            </p>
           </div>
 
           <div>

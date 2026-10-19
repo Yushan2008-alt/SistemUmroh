@@ -311,10 +311,10 @@ export interface Database {
       guides: {
         Row: {
           id: number
-          branch_id: number
+          branch_id: number | null
           profile_id: string | null
           name: string
-          phone: string
+          phone: string | null
           email: string | null
           is_active: boolean
           created_at: string
@@ -322,10 +322,10 @@ export interface Database {
         }
         Insert: {
           id?: number
-          branch_id: number
+          branch_id?: number | null
           profile_id?: string | null
           name: string
-          phone: string
+          phone?: string | null
           email?: string | null
           is_active?: boolean
           created_at?: string
@@ -333,10 +333,10 @@ export interface Database {
         }
         Update: {
           id?: number
-          branch_id?: number
+          branch_id?: number | null
           profile_id?: string | null
           name?: string
-          phone?: string
+          phone?: string | null
           email?: string | null
           is_active?: boolean
           created_at?: string
@@ -580,7 +580,7 @@ export interface Database {
         Row: {
           id: number
           branch_id: number
-          package_id: number
+          package_id: number | null
           guide_id: number | null
           title: string
           date: string
@@ -593,7 +593,7 @@ export interface Database {
         Insert: {
           id?: number
           branch_id: number
-          package_id: number
+          package_id?: number | null
           guide_id?: number | null
           title: string
           date: string
@@ -606,7 +606,7 @@ export interface Database {
         Update: {
           id?: number
           branch_id?: number
-          package_id?: number
+          package_id?: number | null
           guide_id?: number | null
           title?: string
           date?: string

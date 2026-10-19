@@ -69,6 +69,22 @@ export function GuideDashboard() {
           <p className="text-xs sm:text-sm text-teal-100 mt-1">
             Akses jadwal manasik teori dan praktik, rekap presensi kehadiran jamaah, dan panduan bimbingan ibadah umroh &amp; haji secara terpadu.
           </p>
+          <div className="mt-4 flex items-center gap-2.5">
+            <Link
+              href="/guides"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-xs transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-teal-200" />
+              Profil Saya
+            </Link>
+            <Link
+              href="/manasik"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-teal-900 hover:bg-teal-50 text-xs font-semibold transition-colors shadow-xs"
+            >
+              <CalendarDays className="w-3.5 h-3.5 text-teal-700" />
+              Jadwal Manasik
+            </Link>
+          </div>
         </div>
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-15 pointer-events-none" />
       </div>

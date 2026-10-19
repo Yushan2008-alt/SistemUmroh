@@ -1093,7 +1093,7 @@ export async function getGuideDashboardData(): Promise<GuideDashboardData> {
       guide = firstGuide || { name: 'Muthawwif Pembimbing', phone: '08123456789' }
     }
 
-    // Fetch schedules
+    // Fetch schedules assigned to this guide
     let schedQuery = admin
       .from('manasik_schedules')
       .select(`
@@ -1102,43 +1102,109 @@ export async function getGuideDashboardData(): Promise<GuideDashboardData> {
       `)
       .order('date', { ascending: true })
 
-    if (guide?.id) schedQuery = schedQuery.eq('guide_id', guide.id)
+    if (guide?.id) {
+      schedQuery = schedQuery.eq('guide_id', guide.id)
+    } else {
+      // If no guide record exists, empty list
+      schedQuery = schedQuery.eq('id', -1)
+    }
     const { data: schedList } = await schedQuery
 
-    // Fetch pilgrims under guidance
-    const { data: pilList } = await admin
-      .from('pilgrims')
-      .select(`
-        id,
-        name,
-        phone,
-        birth_place,
-        documents (type, status),
-        registrations (
-          packages (name)
-        )
-      `)
-      .limit(15)
+    const todayStr = new Date().toISOString().split('T')[0]
+    const activeSchedules = (schedList || []).filter((s: any) => !s.date || s.date >= todayStr)
+    const completedSchedules = (schedList || []).filter((s: any) => s.date && s.date < todayStr)
 
-    const formattedPilgrims = (pilList || []).map((p: any) => {
-      const hasPassport = (p.documents || []).some((d: any) => d.type === 'passport' && d.status === 'verified')
-      const pkgName = p.registrations?.[0]?.packages?.name || 'Paket Umroh'
-      return {
-        id: p.id,
-        name: p.name,
-        phone: p.phone || '-',
-        city: p.birth_place || 'Indonesia',
-        packageName: pkgName,
-        passportStatus: hasPassport ? 'Terverifikasi' : 'Proses Berkas',
+    // Fetch pilgrims under guidance (registrations where guide_id = guide.id)
+    let formattedPilgrims: any[] = []
+    let totalGuidedPilgrims = 0
+
+    if (guide?.id) {
+      const { data: guidedRegs } = await admin
+        .from('registrations')
+        .select(`
+          id,
+          status,
+          packages (name),
+          pilgrims (
+            id,
+            name,
+            phone,
+            birth_place,
+            documents (type, status)
+          )
+        `)
+        .eq('guide_id', guide.id)
+        .neq('status', 'cancelled')
+        .limit(30)
+
+      totalGuidedPilgrims = (guidedRegs || []).length
+
+      // Fallback: if no registrations have explicit guide_id, check registrations in guide's scheduled packages
+      if (totalGuidedPilgrims === 0 && schedList && schedList.length > 0) {
+        const packageIds = schedList.map((s: any) => s.package_id).filter(Boolean)
+        if (packageIds.length > 0) {
+          const { data: pkgRegs } = await admin
+            .from('registrations')
+            .select(`
+              id,
+              status,
+              packages (name),
+              pilgrims (
+                id,
+                name,
+                phone,
+                birth_place,
+                documents (type, status)
+              )
+            `)
+            .in('package_id', packageIds)
+            .neq('status', 'cancelled')
+            .limit(30)
+
+          if (pkgRegs && pkgRegs.length > 0) {
+            totalGuidedPilgrims = pkgRegs.length
+            formattedPilgrims = pkgRegs.map((r: any) => {
+              const p = r.pilgrims
+              if (!p) return null
+              const hasPassport = (p.documents || []).some(
+                (d: any) => d.type === 'passport' && d.status === 'verified'
+              )
+              return {
+                id: p.id,
+                name: p.name,
+                phone: p.phone || '-',
+                city: p.birth_place || 'Indonesia',
+                packageName: r.packages?.name || 'Paket Umroh',
+                passportStatus: hasPassport ? 'Terverifikasi' : 'Proses Berkas',
+              }
+            }).filter(Boolean)
+          }
+        }
+      } else {
+        formattedPilgrims = (guidedRegs || []).map((r: any) => {
+          const p = r.pilgrims
+          if (!p) return null
+          const hasPassport = (p.documents || []).some(
+            (d: any) => d.type === 'passport' && d.status === 'verified'
+          )
+          return {
+            id: p.id,
+            name: p.name,
+            phone: p.phone || '-',
+            city: p.birth_place || 'Indonesia',
+            packageName: r.packages?.name || 'Paket Umroh',
+            passportStatus: hasPassport ? 'Terverifikasi' : 'Proses Berkas',
+          }
+        }).filter(Boolean)
       }
-    })
+    }
 
     return {
       guideName: guide.name || 'Muthawwif',
       phone: guide.phone || '-',
-      totalPilgrims: (pilList || []).length,
-      activeSchedulesCount: (schedList || []).length,
-      completedSchedulesCount: 0,
+      totalPilgrims: totalGuidedPilgrims,
+      activeSchedulesCount: activeSchedules.length,
+      completedSchedulesCount: completedSchedules.length,
       schedules: schedList || [],
       pilgrims: formattedPilgrims,
     }

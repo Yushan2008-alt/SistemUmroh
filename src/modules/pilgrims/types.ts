@@ -57,6 +57,16 @@ export interface PilgrimItem {
   documents_count?: number
 }
 
+export interface CurrentPilgrimSummary {
+  id: number
+  name: string
+  nik: string
+  phone: string
+  code: string
+  branch_id: number
+  profile_id?: string
+}
+
 export interface PilgrimFormData {
   branch_id: number
   agent_id?: number | null
@@ -272,7 +282,7 @@ export interface DocumentFilterParams {
 export interface ManasikScheduleItem {
   id: number
   branch_id: number
-  package_id: number
+  package_id: number | null
   guide_id: number | null
   title: string
   date: string
@@ -284,6 +294,10 @@ export interface ManasikScheduleItem {
 
   // Joined relations
   packages?: {
+    id: number
+    name: string
+  } | null
+  package?: {
     id: number
     name: string
   } | null
@@ -300,13 +314,14 @@ export interface ManasikScheduleItem {
     id: number
     pilgrim_id: number
     status: AttendanceStatus
+    recorded_by?: string | null
   }[]
   attendances_count?: number
 }
 
 export interface ManasikFormData {
   branch_id: number
-  package_id: number
+  package_id?: number | null
   guide_id?: number | null
   title: string
   date: string
@@ -338,4 +353,6 @@ export interface PilgrimAttendanceItem {
   gender: 'male' | 'female'
   phone: string
   status: AttendanceStatus
+  recorded_by?: string | null
+  updated_at?: string
 }

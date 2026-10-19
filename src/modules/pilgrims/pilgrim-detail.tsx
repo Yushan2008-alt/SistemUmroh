@@ -19,9 +19,10 @@ import {
 
 interface PilgrimDetailViewProps {
   pilgrim: any
+  userRole?: string
 }
 
-export function PilgrimDetailView({ pilgrim }: PilgrimDetailViewProps) {
+export function PilgrimDetailView({ pilgrim, userRole }: PilgrimDetailViewProps) {
   const getWhatsAppLink = (phone: string, name: string) => {
     let clean = phone.replace(/[^0-9]/g, '')
     if (clean.startsWith('0')) {
@@ -88,20 +89,24 @@ export function PilgrimDetailView({ pilgrim }: PilgrimDetailViewProps) {
               Chat WhatsApp
             </a>
           )}
-          <Link
-            href={`/pilgrims/${pilgrim.id}/edit`}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card hover:bg-muted text-foreground rounded-xl text-sm font-medium transition-colors"
-          >
-            <Edit className="w-4 h-4 text-muted-foreground" />
-            Edit Profil
-          </Link>
-          <Link
-            href={`/registrations/create?pilgrim_id=${pilgrim.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-md"
-          >
-            <UserCheck className="w-4 h-4" />
-            Daftar Paket Baru
-          </Link>
+          {userRole !== 'guide' && (
+            <>
+              <Link
+                href={`/pilgrims/${pilgrim.id}/edit`}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card hover:bg-muted text-foreground rounded-xl text-sm font-medium transition-colors"
+              >
+                <Edit className="w-4 h-4 text-muted-foreground" />
+                Edit Profil
+              </Link>
+              <Link
+                href={`/registrations/create?pilgrim_id=${pilgrim.id}`}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-md"
+              >
+                <UserCheck className="w-4 h-4" />
+                Daftar Paket Baru
+              </Link>
+            </>
+          )}
         </div>
       </div>
 

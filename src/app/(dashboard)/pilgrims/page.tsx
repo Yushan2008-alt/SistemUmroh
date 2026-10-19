@@ -59,6 +59,7 @@ export default async function PilgrimsPage({ searchParams }: PageProps) {
   }
 
   let agentId: number | null = null
+  let guideId: number | null = null
 
   if (userRole === 'agent' && user) {
     const admin = (await import('@/lib/supabase/admin')).createAdminClient() as any
@@ -75,11 +76,27 @@ export default async function PilgrimsPage({ searchParams }: PageProps) {
     }
   }
 
+  if (userRole === 'guide' && user) {
+    const admin = (await import('@/lib/supabase/admin')).createAdminClient() as any
+    const { data: gd } = await admin
+      .from('guides')
+      .select('id, branch_id')
+      .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+      .maybeSingle()
+    if (gd) {
+      guideId = gd.id
+      activeBranchId = gd.branch_id
+    } else {
+      guideId = -1 // No records if guide profile not linked yet
+    }
+  }
+
   const { data: pilgrims } = await getPilgrims({
     search: q,
     status,
     branchId: activeBranchId,
     agentId,
+    guideId,
   })
 
   return (

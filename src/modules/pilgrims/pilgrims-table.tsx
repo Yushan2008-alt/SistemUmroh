@@ -119,13 +119,35 @@ export function PilgrimsTable({
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
             <Users className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
-            Data Jamaah
+            {userRole === 'guide' ? 'Data Jamaah Bimbingan' : 'Data Jamaah'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Master database jamaah Umroh &amp; Haji, rekam paspor, dan kontak darurat.
+            {userRole === 'guide'
+              ? 'Daftar seluruh jamaah umroh & haji yang berada dalam rombongan bimbingan Anda.'
+              : 'Master database jamaah Umroh & Haji, rekam paspor, dan kontak darurat.'}
           </p>
 
-          {userRole === 'admin' ? (
+          {userRole === 'guide' ? (
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Rombongan Bimbingan Muthawif
+              </span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                • Menampilkan jamaah yang Anda bimbing (Khusus Lihat / Read-Only)
+              </span>
+            </div>
+          ) : userRole === 'agent' ? (
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs">
+                <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                Jamaah Referral Agen
+              </span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                • Menampilkan jamaah hasil rekomendasi / pendaftaran Anda
+              </span>
+            </div>
+          ) : userRole === 'admin' ? (
             <div className="flex items-center gap-2 mt-2.5">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
                 <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -147,13 +169,15 @@ export function PilgrimsTable({
             </div>
           )}
         </div>
-        <Link
-          href="/pilgrims/create"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Jamaah
-        </Link>
+        {userRole !== 'guide' && (
+          <Link
+            href="/pilgrims/create"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Jamaah
+          </Link>
+        )}
       </div>
 
       {/* Error Message */}
@@ -324,14 +348,16 @@ export function PilgrimsTable({
                           >
                             <Eye className="w-4 h-4" />
                           </Link>
-                          <Link
-                            href={`/pilgrims/${pilgrim.id}/edit`}
-                            className="p-2 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors"
-                            title="Edit Data Jamaah"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Link>
-                          {userRole !== 'agent' && (
+                          {userRole !== 'guide' && (
+                            <Link
+                              href={`/pilgrims/${pilgrim.id}/edit`}
+                              className="p-2 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors"
+                              title="Edit Data Jamaah"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Link>
+                          )}
+                          {userRole !== 'agent' && userRole !== 'guide' && (
                             <button
                               type="button"
                               onClick={() => setDeleteConfirmPilgrim(pilgrim)}
@@ -352,17 +378,25 @@ export function PilgrimsTable({
         ) : (
           <div className="p-12 text-center">
             <Users className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-foreground">Belum ada jamaah terdaftar</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              {userRole === 'guide'
+                ? 'Belum ada jamaah bimbingan aktif'
+                : 'Belum ada jamaah terdaftar'}
+            </h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Daftarkan data jamaah baru untuk memudahkan pengorganisasian paspor, dokumen, dan invoice perjalanan.
+              {userRole === 'guide'
+                ? 'Jamaah akan muncul otomatis di sini saat nama Anda ditugaskan sebagai Muthawif pembimbing pada paket pendaftaran jamaah aktif.'
+                : 'Daftarkan data jamaah baru untuk memudahkan pengorganisasian paspor, dokumen, dan invoice perjalanan.'}
             </p>
-            <Link
-              href="/pilgrims/create"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Tambah Jamaah Pertama
-            </Link>
+            {userRole !== 'guide' && (
+              <Link
+                href="/pilgrims/create"
+                className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Jamaah Pertama
+              </Link>
+            )}
           </div>
         )}
       </div>

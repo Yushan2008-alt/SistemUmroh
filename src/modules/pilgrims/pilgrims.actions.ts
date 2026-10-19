@@ -7,6 +7,7 @@ import type {
   PilgrimItem,
   PilgrimFormData,
   PilgrimFormDataOptions,
+  CurrentPilgrimSummary,
 } from './types'
 
 export async function getPilgrims(params?: {
@@ -14,9 +15,35 @@ export async function getPilgrims(params?: {
   status?: string
   branchId?: number | null
   agentId?: number | null
+  guideId?: number | null
 }): Promise<{ data: PilgrimItem[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+    const serverSupabase = await createClient()
+    const {
+      data: { user },
+    } = await serverSupabase.auth.getUser()
+
+    let callerRole: string = 'super_admin'
+    let callerGuideId: number | null = params?.guideId || null
+
+    if (user) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (prof?.role) callerRole = prof.role
+
+      if (callerRole === 'guide' && !callerGuideId) {
+        const { data: gd } = await supabase
+          .from('guides')
+          .select('id')
+          .eq('profile_id', user.id)
+          .maybeSingle()
+        callerGuideId = gd ? gd.id : -1
+      }
+    }
 
     let query = supabase
       .from('pilgrims')
@@ -25,17 +52,43 @@ export async function getPilgrims(params?: {
         branches (id, name, code),
         agents (id, name, code, phone),
         profiles (id, name, email, role),
-        registrations (id, code, status, packages (name, departure_date)),
+        registrations (id, code, status, guide_id, packages (name, departure_date)),
         documents (id, type, status)
       `)
       .order('name', { ascending: true })
 
-    if (params?.agentId !== undefined && params.agentId !== null) {
-      query = query.eq('agent_id', params.agentId)
-    }
+    // Role-based Scoping for Muthawif (Guide)
+    if (callerRole === 'guide' || (params?.guideId !== undefined && params?.guideId !== null)) {
+      const activeGuideId = callerGuideId ?? params?.guideId
+      if (!activeGuideId || activeGuideId === -1) {
+        return { data: [] }
+      }
 
-    if (params?.branchId && params.branchId > 0) {
-      query = query.eq('branch_id', params.branchId)
+      // Find all pilgrims guided by this muthawif via registrations with guide_id = activeGuideId
+      const { data: guidedRegs } = await supabase
+        .from('registrations')
+        .select('pilgrim_id')
+        .eq('guide_id', activeGuideId)
+        .neq('status', 'cancelled')
+
+      const guidedPilgrimIds = Array.from(
+        new Set((guidedRegs || []).map((r: any) => r.pilgrim_id).filter(Boolean))
+      ) as number[]
+
+      if (guidedPilgrimIds.length === 0) {
+        return { data: [] }
+      }
+
+      query = query.in('id', guidedPilgrimIds)
+    } else {
+      // Standard Agent & Branch scoping for other roles
+      if (params?.agentId !== undefined && params.agentId !== null) {
+        query = query.eq('agent_id', params.agentId)
+      }
+
+      if (params?.branchId && params.branchId > 0) {
+        query = query.eq('branch_id', params.branchId)
+      }
     }
 
     if (params?.status === 'active') {
@@ -86,6 +139,14 @@ export async function getPilgrimFormData(): Promise<PilgrimFormDataOptions> {
     }
   }
 
+  // Guide does not have permission to create/manage pilgrims
+  if (userRole === 'guide') {
+    return {
+      branches: [],
+      agents: [],
+    }
+  }
+
   const [branchesRes, agentsRes] = await Promise.all([
     supabase.from('branches').select('id, name, code').eq('is_active', true).order('name'),
     supabase.from('agents').select('id, name, code').eq('is_active', true).order('name'),
@@ -107,6 +168,36 @@ export async function getPilgrimFormData(): Promise<PilgrimFormDataOptions> {
 export async function getPilgrimById(id: number): Promise<{ data: any | null; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+    const serverSupabase = await createClient()
+    const {
+      data: { user },
+    } = await serverSupabase.auth.getUser()
+
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'guide') {
+        const { data: gd } = await supabase.from('guides').select('id').eq('profile_id', user.id).maybeSingle()
+        if (gd) {
+          // Check if this pilgrim is in this guide's guidance
+          const { data: guidedReg } = await supabase
+            .from('registrations')
+            .select('id')
+            .eq('pilgrim_id', id)
+            .eq('guide_id', gd.id)
+            .neq('status', 'cancelled')
+            .limit(1)
+
+          if (!guidedReg || guidedReg.length === 0) {
+            return {
+              data: null,
+              error: 'Akses ditolak: Jamaah ini bukan bagian dari rombongan bimbingan Anda.',
+            }
+          }
+        } else {
+          return { data: null, error: 'Profil muthawif Anda belum terhubung.' }
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from('pilgrims')
@@ -119,6 +210,7 @@ export async function getPilgrimById(id: number): Promise<{ data: any | null; er
           id,
           code,
           status,
+          guide_id,
           total_price,
           registered_at,
           packages (id, name, type, price, departure_date, return_date, duration_days)
@@ -166,7 +258,7 @@ export async function createPilgrim(
       return { success: false, error: `NIK "${data.nik}" sudah terdaftar pada jamaah lain.` }
     }
 
-    // Identifikasi peran pemanggil (Staff vs Agen)
+    // Identifikasi peran pemanggil
     const serverSupabase = await createClient()
     const { data: { user } } = await serverSupabase.auth.getUser()
     let callerRole = 'super_admin'
@@ -183,6 +275,14 @@ export async function createPilgrim(
           callerAgentId = ag.id
           callerBranchId = ag.branch_id
         }
+      }
+    }
+
+    // Guide tidak memiliki akses CRUD jamaah
+    if (callerRole === 'guide') {
+      return {
+        success: false,
+        error: 'Akses ditolak: Muthawif tidak memiliki izin untuk menambah data jamaah.',
       }
     }
 
@@ -264,20 +364,22 @@ export async function createPilgrim(
       birth_place: data.birth_place?.trim() || null,
       birth_date: data.birth_date || null,
       phone: data.phone.trim(),
+      email: data.email?.trim() || null,
       address: data.address?.trim() || null,
       emergency_contact_name: data.emergency_contact_name?.trim() || null,
       emergency_contact_phone: data.emergency_contact_phone?.trim() || null,
       mahram_status: data.mahram_status?.trim() || null,
       health_notes: data.health_notes?.trim() || null,
-      is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
+      is_active: data.is_active ?? true,
     })
 
     if (insertError) {
-      console.error('Error inserting pilgrim:', insertError)
+      console.error('Error inserting pilgrim record:', insertError)
       return { success: false, error: insertError.message }
     }
 
     revalidatePath('/pilgrims')
+    revalidatePath('/dashboard')
     return { success: true, temporaryPassword }
   } catch (err: any) {
     console.error('Unexpected error creating pilgrim:', err)
@@ -292,7 +394,7 @@ export async function updatePilgrim(
   try {
     const supabase = createAdminClient() as any
 
-    // Validasi NIK unik selain diri sendiri
+    // 1. Cek NIK unik selain dirinya
     const { data: existingNik } = await supabase
       .from('pilgrims')
       .select('id')
@@ -321,6 +423,14 @@ export async function updatePilgrim(
           callerAgentId = ag.id
           callerBranchId = ag.branch_id
         }
+      }
+    }
+
+    // Guide tidak memiliki izin mengedit data jamaah
+    if (callerRole === 'guide') {
+      return {
+        success: false,
+        error: 'Akses ditolak: Muthawif tidak memiliki izin untuk mengubah data jamaah.',
       }
     }
 
@@ -360,12 +470,23 @@ export async function updatePilgrim(
       .eq('id', id)
 
     if (error) {
-      console.error('Error updating pilgrim:', error)
+      console.error('Error updating pilgrim record:', error)
       return { success: false, error: error.message }
+    }
+
+    // Sync is_active ke auth/profiles jika jamaah punya akun
+    const { data: currentPilgrim } = await supabase.from('pilgrims').select('profile_id').eq('id', id).maybeSingle()
+    if (currentPilgrim?.profile_id) {
+      await supabase.from('profiles').update({
+        is_active: Boolean(data.is_active),
+        name: data.name.trim(),
+        phone: data.phone.trim(),
+      }).eq('id', currentPilgrim.profile_id)
     }
 
     revalidatePath('/pilgrims')
     revalidatePath(`/pilgrims/${id}`)
+    revalidatePath('/dashboard')
     return { success: true }
   } catch (err: any) {
     console.error('Unexpected error updating pilgrim:', err)
@@ -377,7 +498,7 @@ export async function deletePilgrim(id: number): Promise<{ success: boolean; err
   try {
     const supabase = createAdminClient() as any
 
-    // Validasi wewenang: Agen dilarang menghapus jamaah
+    // Validasi wewenang: Agen & Muthawif dilarang menghapus jamaah
     const serverSupabase = await createClient()
     const { data: { user } } = await serverSupabase.auth.getUser()
     if (user) {
@@ -386,6 +507,12 @@ export async function deletePilgrim(id: number): Promise<{ success: boolean; err
         return {
           success: false,
           error: 'Akses ditolak: Mitra agen tidak memiliki izin untuk menghapus data jamaah (khusus staf).',
+        }
+      }
+      if (prof?.role === 'guide') {
+        return {
+          success: false,
+          error: 'Akses ditolak: Muthawif tidak memiliki izin untuk menghapus data jamaah (khusus staf).',
         }
       }
     }
@@ -418,16 +545,6 @@ export async function deletePilgrim(id: number): Promise<{ success: boolean; err
     console.error('Unexpected error deleting pilgrim:', err)
     return { success: false, error: err.message || 'Gagal menghapus data jamaah' }
   }
-}
-
-export interface CurrentPilgrimSummary {
-  id: number
-  name: string
-  nik: string
-  phone: string
-  code: string
-  branch_id: number
-  profile_id?: string
 }
 
 /**
@@ -507,4 +624,3 @@ export async function getCurrentPilgrim(): Promise<CurrentPilgrimSummary | null>
     return null
   }
 }
-

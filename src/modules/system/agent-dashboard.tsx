@@ -7,11 +7,9 @@ import {
   CheckCircle2,
   Clock,
   ArrowUpRight,
-  TrendingUp,
   Percent,
   Loader2,
   Megaphone,
-  Radio,
   Calendar,
   Layers,
 } from 'lucide-react'
@@ -45,7 +43,6 @@ import { formatCurrency } from '@/lib/utils'
 
 export function AgentDashboard() {
   const [loading, setLoading] = useState(true)
-  const [isLiveConnected, setIsLiveConnected] = useState(false)
   const [data, setData] = useState<AgentDashboardData>({
     agentName: 'Mitra Agen',
     referralCode: 'AGN-001',
@@ -94,11 +91,7 @@ export function AgentDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
         loadData()
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsLiveConnected(true)
-        }
-      })
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
@@ -110,15 +103,6 @@ export function AgentDashboard() {
       {/* Agent Banner - Flat Minimalist & Deep Emerald */}
       <div className="rounded-xl bg-[#064e3b] dark:bg-[#022318] p-6 text-white border border-emerald-800 shadow-none relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="relative z-10 max-w-2xl space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-950/60 border border-amber-400/30 px-2.5 py-0.5 rounded">
-              Portal Mitra Agen
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-200 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700/60">
-              <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-              <span>{isLiveConnected ? 'Terhubung Real-Time' : 'Sinkronisasi Otomatis'}</span>
-            </span>
-          </div>
           <h2 className="text-2xl font-bold tracking-tight text-white font-heading">
             Selamat Datang, {data.agentName}
           </h2>
@@ -223,19 +207,13 @@ export function AgentDashboard() {
         {/* Line Chart: Perolehan Komisi Real */}
         <Card className="lg:col-span-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl shadow-none">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900 dark:text-white font-heading">
-                  Tren Perolehan Komisi
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Progres akumulasi pendapatan komisi mitra dari database
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-md border border-emerald-200 dark:border-emerald-800/40">
-                <TrendingUp className="h-3.5 w-3.5" />
-                <span>Terhubung Real-Time</span>
-              </div>
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-white font-heading">
+                Tren Perolehan Komisi
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Progres akumulasi pendapatan komisi mitra dari database
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="pt-4">

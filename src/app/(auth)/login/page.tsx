@@ -106,6 +106,42 @@ export default function LoginPage() {
         return
       }
 
+      if (data?.user) {
+        // Verify account active status in public.profiles
+        const { data: profile } = await (supabase as any)
+          .from('profiles')
+          .select('is_active, role')
+          .eq('id', data.user.id)
+          .maybeSingle()
+
+        if (profile && profile.is_active === false) {
+          await supabase.auth.signOut()
+          setErrorMessage(
+            'Akun Anda telah dinonaktifkan oleh Administrator. Silakan hubungi pihak manajemen travel.'
+          )
+          setIsLoading(false)
+          return
+        }
+
+        // If user is a guide, also check guides.is_active
+        if (profile?.role === 'guide') {
+          const { data: guideRecord } = await (supabase as any)
+            .from('guides')
+            .select('is_active')
+            .eq('profile_id', data.user.id)
+            .maybeSingle()
+
+          if (guideRecord && guideRecord.is_active === false) {
+            await supabase.auth.signOut()
+            setErrorMessage(
+              'Status penugasan muthawif Anda sedang dinonaktifkan. Silakan hubungi manajemen kantor cabang.'
+            )
+            setIsLoading(false)
+            return
+          }
+        }
+      }
+
       // Login success
       router.push('/dashboard')
       router.refresh()

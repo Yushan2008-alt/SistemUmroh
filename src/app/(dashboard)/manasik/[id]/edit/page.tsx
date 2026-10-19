@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getManasikScheduleById, getManasikFormData } from '@/modules/pilgrims'
 import { ManasikForm } from '@/modules/pilgrims'
+import { createClient } from '@/lib/supabase/server'
 
 interface EditManasikPageProps {
   params: Promise<{ id: string }>
@@ -17,6 +18,23 @@ export default async function EditManasikPage({ params }: EditManasikPageProps) 
 
   if (isNaN(scheduleId)) {
     notFound()
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.role !== 'super_admin' && profile?.role !== 'admin') {
+      redirect('/manasik')
+    }
   }
 
   const [detailRes, options] = await Promise.all([

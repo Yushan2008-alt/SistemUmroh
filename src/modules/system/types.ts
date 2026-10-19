@@ -125,6 +125,12 @@ export interface Guide {
     name: string
     code: string
   } | null
+  profile?: {
+    id: string
+    email: string | null
+    role: string
+    is_active: boolean
+  } | null
 }
 
 export interface GuideFormData {
@@ -133,6 +139,9 @@ export interface GuideFormData {
   phone?: string | null
   email?: string | null
   is_active?: boolean
+  create_account?: boolean
+  account_email?: string
+  account_password?: string
 }
 
 // ============================================================================
