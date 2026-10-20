@@ -105,7 +105,7 @@ export async function getRegistrationDetail(id: number): Promise<{ data: Registr
       .from('registrations')
       .select(`
         *,
-        pilgrims (id, name, phone, passport_number, nik),
+        pilgrims (id, name, phone, passport_number, passport_expiry, nik, gender, birth_date, emergency_contact_name, emergency_contact_phone, address),
         packages (id, name, type, price, departure_date, duration_days, quota),
         branches (id, name, code),
         agents (id, name, code),

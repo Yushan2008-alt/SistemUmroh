@@ -133,10 +133,12 @@ export function EquipmentTable({
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
             <Luggage className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
-            Perlengkapan Jamaah
+            {userRole === 'pilgrim' ? 'Perlengkapan Ibadah Saya' : 'Perlengkapan Jamaah'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manajemen dan rekam distribusi koper, tas paspor, kain ihram, dan seragam batik jamaah.
+            {userRole === 'pilgrim'
+              ? 'Daftar penyerahan koper, tas paspor, kain ihram, dan seragam batik yang Anda terima.'
+              : 'Manajemen dan rekam distribusi koper, tas paspor, kain ihram, dan seragam batik jamaah.'}
           </p>
         </div>
         {userRole !== 'pilgrim' && (

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getActionCaller } from '@/lib/auth-guard'
 import type { Airline, AirlineFormData } from './types'
 
 export async function getAirlines(search?: string): Promise<{ data: Airline[]; error?: string }> {
@@ -54,6 +55,11 @@ export async function getAirlineById(id: number): Promise<{ data: Airline | null
 
 export async function createAirline(data: AirlineFormData): Promise<{ success: boolean; data?: Airline; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menambah maskapai.' }
+    }
+
     const supabase = createAdminClient() as any
 
     if (!data.name?.trim() || !data.code?.trim()) {
@@ -86,6 +92,11 @@ export async function createAirline(data: AirlineFormData): Promise<{ success: b
 
 export async function updateAirline(id: number, data: Partial<AirlineFormData>): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang mengubah maskapai.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const payload: any = {
@@ -117,6 +128,11 @@ export async function updateAirline(id: number, data: Partial<AirlineFormData>):
 
 export async function deleteAirline(id: number): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menghapus maskapai.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const { error } = await supabase

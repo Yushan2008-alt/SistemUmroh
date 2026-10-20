@@ -44,20 +44,24 @@ export function BranchFocusSwitcher({ currentRole = 'admin' }: BranchFocusSwitch
 
       setBranches(branchList)
 
-      // Read saved branch or default to first available branch
+      // Read saved branch or default
       const saved = localStorage.getItem('branch_focus_id')
-      const initialId = saved && saved !== 'all' && branchList.some(b => b.id === Number(saved))
-        ? Number(saved)
-        : branchList[0]?.id || 1
+      if (currentRole === 'super_admin' && (saved === 'all' || saved === null)) {
+        setSelectedBranchId(null)
+      } else {
+        const initialId = saved && saved !== 'all' && branchList.some(b => b.id === Number(saved))
+          ? Number(saved)
+          : branchList[0]?.id || 1
 
-      setSelectedBranchId(initialId)
-      localStorage.setItem('branch_focus_id', initialId.toString())
-      document.cookie = `branch_focus_id=${initialId}; path=/; max-age=31536000; SameSite=Lax`
+        setSelectedBranchId(initialId)
+        localStorage.setItem('branch_focus_id', initialId.toString())
+        document.cookie = `branch_focus_id=${initialId}; path=/; max-age=31536000; SameSite=Lax`
+      }
     } catch (err) {
       console.error('Failed to load branches:', err)
       const fallbackList = [{ id: 1, name: 'Kantor Pusat Jakarta', code: 'HO-JKT', is_head_office: true }]
       setBranches(fallbackList)
-      setSelectedBranchId(1)
+      setSelectedBranchId(currentRole === 'super_admin' ? null : 1)
     } finally {
       setLoading(false)
     }
@@ -65,12 +69,17 @@ export function BranchFocusSwitcher({ currentRole = 'admin' }: BranchFocusSwitch
 
   useEffect(() => {
     fetchBranches()
-  }, [])
+  }, [currentRole])
 
-  const handleSelect = (id: number) => {
+  const handleSelect = (id: number | null) => {
     setSelectedBranchId(id)
-    localStorage.setItem('branch_focus_id', id.toString())
-    document.cookie = `branch_focus_id=${id}; path=/; max-age=31536000; SameSite=Lax`
+    if (id === null) {
+      localStorage.setItem('branch_focus_id', 'all')
+      document.cookie = `branch_focus_id=all; path=/; max-age=31536000; SameSite=Lax`
+    } else {
+      localStorage.setItem('branch_focus_id', id.toString())
+      document.cookie = `branch_focus_id=${id}; path=/; max-age=31536000; SameSite=Lax`
+    }
     window.dispatchEvent(new Event('branch_focus_changed'))
     router.refresh()
   }
@@ -87,7 +96,13 @@ export function BranchFocusSwitcher({ currentRole = 'admin' }: BranchFocusSwitch
       >
         <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
         <span className="text-xs truncate max-w-[120px] sm:max-w-[180px]">
-          {loading ? 'Memuat cabang...' : activeBranch ? activeBranch.name : 'Pilih Cabang'}
+          {loading
+            ? 'Memuat cabang...'
+            : selectedBranchId === null
+            ? 'Semua Cabang (Global)'
+            : activeBranch
+            ? activeBranch.name
+            : 'Pilih Cabang'}
         </span>
         <ChevronsUpDown className="h-3 w-3 opacity-60 ml-auto shrink-0" />
       </DropdownMenuTrigger>
@@ -100,7 +115,25 @@ export function BranchFocusSwitcher({ currentRole = 'admin' }: BranchFocusSwitch
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
 
-        {/* Daftar 5 Cabang Resmi Supabase (Satu per satu tanpa Semua Cabang) */}
+        {currentRole === 'super_admin' && (
+          <>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => handleSelect(null)}
+                className="flex items-center justify-between cursor-pointer py-2"
+              >
+                <div className="flex flex-col">
+                  <span className="font-semibold text-sm text-foreground">Semua Cabang (Global)</span>
+                  <span className="text-[11px] text-muted-foreground">Konsolidasi seluruh wilayah</span>
+                </div>
+                {selectedBranchId === null && <Check className="h-4 w-4 text-emerald-600 shrink-0" />}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
+        {/* Daftar Cabang Resmi */}
         <DropdownMenuGroup>
           {branches.map((b) => (
             <DropdownMenuItem

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getActionCaller } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 import {
   STANDARD_DOCUMENTS,
@@ -11,18 +12,16 @@ import {
 } from './types'
 
 // Helper to determine the acting admin profile ID
-async function getActingAdminProfileId(): Promise<string> {
+async function getActingAdminProfileId(): Promise<string | null> {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user?.id) {
-      return user.id
+    const caller = await getActionCaller()
+    if (caller && ['super_admin', 'admin'].includes(caller.role)) {
+      return caller.user.id
     }
   } catch (err) {
-    console.error('Could not get session user:', err)
+    console.error('Could not get session caller:', err)
   }
-  // Default to Super Admin profile if unauthenticated or session expired
-  return '11111111-1111-1111-1111-111111111111'
+  return null
 }
 
 /**
@@ -450,8 +449,12 @@ export async function verifyDocument(
   note?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = createAdminClient() as any
     const adminId = await getActingAdminProfileId()
+    if (!adminId) {
+      return { success: false, message: 'Akses ditolak: Hanya staf resmi yang berwenang memverifikasi dokumen.' }
+    }
+
+    const supabase = createAdminClient() as any
 
     const { error } = await supabase
       .from('documents')
@@ -491,8 +494,12 @@ export async function rejectDocument(
       return { success: false, message: 'Alasan penolakan wajib diisi untuk catatan jamaah.' }
     }
 
-    const supabase = createAdminClient() as any
     const adminId = await getActingAdminProfileId()
+    if (!adminId) {
+      return { success: false, message: 'Akses ditolak: Hanya staf resmi yang berwenang menolak dokumen.' }
+    }
+
+    const supabase = createAdminClient() as any
 
     const { error } = await supabase
       .from('documents')

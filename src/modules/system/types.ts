@@ -104,6 +104,9 @@ export interface AgentFormData {
   email?: string | null
   commission_rate: number
   is_active?: boolean
+  create_account?: boolean
+  account_email?: string | null
+  account_password?: string | null
 }
 
 // ============================================================================
@@ -212,6 +215,7 @@ export interface ActivityLogWithRelations {
 export interface ActivityLogFilterParams {
   action?: string
   userId?: string
+  branchId?: number
   q?: string
 }
 

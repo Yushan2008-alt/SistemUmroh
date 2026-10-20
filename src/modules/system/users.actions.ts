@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { logActivity } from '@/lib/activity-logger'
+import { getActionCaller } from '@/lib/auth-guard'
 import type { UserProfileWithBranch, UserFormData, UserFilterParams } from './types'
 
 export async function getUsers(filters?: UserFilterParams): Promise<UserProfileWithBranch[]> {
@@ -84,11 +85,27 @@ export async function createUser(
   data: UserFormData
 ): Promise<{ success: boolean; message: string; id?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, message: 'Akses ditolak: Hanya staf resmi yang berwenang menambah pengguna.' }
+    }
+
+    if (caller.role === 'admin') {
+      if (data.role === 'super_admin') {
+        return { success: false, message: 'Admin cabang tidak berwenang membuat akun Super Admin.' }
+      }
+      if (caller.branchId && data.branch_id && Number(data.branch_id) !== Number(caller.branchId)) {
+        return { success: false, message: 'Admin cabang hanya dapat mendaftarkan pengguna di cabangnya sendiri.' }
+      }
+    }
+
     const supabase = createAdminClient()
 
     if (!data.password || data.password.length < 6) {
       return { success: false, message: 'Kata sandi minimal 6 karakter.' }
     }
+
+    const assignedBranchId = caller.role === 'admin' && caller.branchId ? caller.branchId : (data.branch_id || null)
 
     // 1. Create auth user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -98,7 +115,7 @@ export async function createUser(
       user_metadata: {
         name: data.name,
         role: data.role,
-        branch_id: data.branch_id || null,
+        branch_id: assignedBranchId,
       },
     })
 
@@ -115,7 +132,7 @@ export async function createUser(
       name: data.name,
       email: data.email,
       role: data.role,
-      branch_id: data.branch_id || null,
+      branch_id: assignedBranchId,
       phone: data.phone || null,
       is_active: data.is_active,
       updated_at: new Date().toISOString(),
@@ -131,7 +148,7 @@ export async function createUser(
       subject_type: 'user',
       subject_id: userId,
       description: `Menambah pengguna baru: ${data.name} (${data.role})`,
-      properties: { email: data.email, role: data.role, branch_id: data.branch_id },
+      properties: { email: data.email, role: data.role, branch_id: assignedBranchId },
     })
 
     revalidatePath('/users')
@@ -146,7 +163,31 @@ export async function updateUser(
   data: UserFormData
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, message: 'Akses ditolak: Hanya staf resmi yang berwenang mengubah pengguna.' }
+    }
+
     const supabase = createAdminClient()
+
+    if (caller.role === 'admin') {
+      if (data.role === 'super_admin') {
+        return { success: false, message: 'Admin cabang tidak berwenang menetapkan role Super Admin.' }
+      }
+      const { data: targetProfile } = await (supabase.from('profiles') as any)
+        .select('role, branch_id')
+        .eq('id', id)
+        .single()
+
+      if (targetProfile?.role === 'super_admin') {
+        return { success: false, message: 'Admin cabang tidak berwenang mengubah akun Super Admin.' }
+      }
+      if (caller.branchId && targetProfile?.branch_id && Number(targetProfile.branch_id) !== Number(caller.branchId)) {
+        return { success: false, message: 'Admin cabang hanya dapat mengubah pengguna di cabangnya sendiri.' }
+      }
+    }
+
+    const assignedBranchId = caller.role === 'admin' && caller.branchId ? caller.branchId : (data.branch_id || null)
 
     // 1. Update Auth user if password or email is changed
     const authUpdates: Record<string, any> = {
@@ -154,7 +195,7 @@ export async function updateUser(
       user_metadata: {
         name: data.name,
         role: data.role,
-        branch_id: data.branch_id || null,
+        branch_id: assignedBranchId,
       },
     }
 
@@ -170,7 +211,7 @@ export async function updateUser(
         name: data.name,
         email: data.email,
         role: data.role,
-        branch_id: data.branch_id || null,
+        branch_id: assignedBranchId,
         phone: data.phone || null,
         is_active: data.is_active,
         updated_at: new Date().toISOString(),
@@ -187,7 +228,7 @@ export async function updateUser(
       subject_type: 'user',
       subject_id: id,
       description: `Memperbarui profil pengguna: ${data.name}`,
-      properties: { email: data.email, role: data.role, branch_id: data.branch_id },
+      properties: { email: data.email, role: data.role, branch_id: assignedBranchId },
     })
 
     revalidatePath('/users')
@@ -199,7 +240,26 @@ export async function updateUser(
 
 export async function deleteUser(id: string): Promise<{ success: boolean; message: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, message: 'Akses ditolak: Hanya staf resmi yang berwenang menghapus pengguna.' }
+    }
+
     const supabase = createAdminClient()
+
+    if (caller.role === 'admin') {
+      const { data: targetProfile } = await (supabase.from('profiles') as any)
+        .select('role, branch_id')
+        .eq('id', id)
+        .single()
+
+      if (targetProfile?.role === 'super_admin') {
+        return { success: false, message: 'Admin cabang tidak berwenang menghapus akun Super Admin.' }
+      }
+      if (caller.branchId && targetProfile?.branch_id && Number(targetProfile.branch_id) !== Number(caller.branchId)) {
+        return { success: false, message: 'Admin cabang hanya dapat menghapus pengguna di cabangnya sendiri.' }
+      }
+    }
 
     // 1. Delete from profiles
     await (supabase.from('profiles') as any).delete().eq('id', id)
@@ -226,7 +286,26 @@ export async function resetUserPassword(
   userName: string
 ): Promise<{ success: boolean; temporaryPassword?: string; message: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, message: 'Akses ditolak: Hanya staf resmi yang berwenang mereset kata sandi.' }
+    }
+
     const supabase = createAdminClient()
+
+    if (caller.role === 'admin') {
+      const { data: targetProfile } = await (supabase.from('profiles') as any)
+        .select('role, branch_id')
+        .eq('id', userId)
+        .single()
+
+      if (targetProfile?.role === 'super_admin') {
+        return { success: false, message: 'Admin cabang tidak berwenang mereset sandi akun Super Admin.' }
+      }
+      if (caller.branchId && targetProfile?.branch_id && Number(targetProfile.branch_id) !== Number(caller.branchId)) {
+        return { success: false, message: 'Admin cabang hanya dapat mereset sandi pengguna di cabangnya sendiri.' }
+      }
+    }
 
     // Generate random secure 10-char alphanumeric string
     const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'

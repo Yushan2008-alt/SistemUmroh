@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getSettings } from '@/modules/system'
 import { SettingsForm } from '@/modules/system'
@@ -8,6 +9,7 @@ export const metadata = {
 }
 
 export default async function SettingsPage() {
+  await requireAuthRole(['super_admin'])
   const settings = await getSettings()
 
   return (

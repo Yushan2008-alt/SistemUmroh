@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { logActivity } from '@/lib/activity-logger'
+import { getActionCaller } from '@/lib/auth-guard'
 import type { SystemSettings } from './types'
 
 const defaultSettings: SystemSettings = {
@@ -42,6 +43,11 @@ export async function updateSettings(
   payload: Partial<SystemSettings>
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || caller.role !== 'super_admin') {
+      return { success: false, message: 'Akses ditolak: Hanya Super Admin yang berhak memperbarui pengaturan white-label.' }
+    }
+
     const supabase = createAdminClient()
 
     const upsertRows = Object.entries(payload).map(([key, value]) => ({

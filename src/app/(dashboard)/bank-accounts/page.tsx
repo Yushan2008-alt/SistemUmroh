@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { getBankAccounts, getAvailableBranches } from '@/modules/finance'
 import { BankAccountsTable } from '@/modules/finance'
 
@@ -11,6 +12,7 @@ export const metadata = {
 }
 
 export default async function BankAccountsPage({ searchParams }: PageProps) {
+  await requireAuthRole(['super_admin', 'admin'])
   const { q, branch } = await searchParams
   const branchId = branch ? Number(branch) : undefined
   const [{ data: bankAccounts }, branches] = await Promise.all([

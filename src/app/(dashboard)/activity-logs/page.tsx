@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getActivityLogs, getActivityLogFilters } from '@/modules/system'
 import { ActivityLogTable } from '@/modules/system'
@@ -8,8 +9,11 @@ export const metadata = {
 }
 
 export default async function ActivityLogsPage() {
+  const { role, branchId } = await requireAuthRole(['super_admin', 'admin'])
+  const activeBranchId = role === 'admin' && branchId ? branchId : undefined
+
   const [logs, { actions, users }] = await Promise.all([
-    getActivityLogs(),
+    getActivityLogs({ branchId: activeBranchId }),
     getActivityLogFilters(),
   ])
 

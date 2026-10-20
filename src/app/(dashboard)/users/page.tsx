@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getUsers } from '@/modules/system'
 import { UserList } from '@/modules/system'
@@ -8,6 +9,7 @@ export const metadata = {
 }
 
 export default async function UsersPage() {
+  await requireAuthRole(['super_admin', 'admin'])
   const users = await getUsers()
 
   return (

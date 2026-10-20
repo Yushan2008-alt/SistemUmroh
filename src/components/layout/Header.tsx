@@ -51,9 +51,11 @@ export function Header({ userRole = 'super_admin', title = 'Sistem Manajemen Tra
         </h1>
       </div>
 
-      {/* Right: Branch Focus (Admin Only), Notifications, User Nav & Prominent Logout */}
+      {/* Right: Branch Focus (Super Admin & Admin), Notifications, User Nav & Prominent Logout */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {userRole === 'admin' && <BranchFocusSwitcher currentRole={userRole} />}
+        {(userRole === 'admin' || userRole === 'super_admin') && (
+          <BranchFocusSwitcher currentRole={userRole} />
+        )}
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="h-4 w-4" />
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />

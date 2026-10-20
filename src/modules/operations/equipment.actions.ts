@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getActionCaller } from '@/lib/auth-guard'
 import type {
   EquipmentDistributionItem,
   EquipmentFormData,
@@ -12,9 +13,38 @@ import type {
 export async function getEquipmentDistributions(params?: {
   search?: string
   status?: string
+  pilgrimId?: number
+  branchId?: number | null
 }): Promise<{ data: EquipmentDistributionItem[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
+
+    let registrationFilterIds: number[] | null = null
+
+    if (params?.pilgrimId) {
+      const { data: pilgrimRegs } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('pilgrim_id', params.pilgrimId)
+      const ids = (pilgrimRegs || []).map((r: any) => r.id)
+      if (ids.length === 0) return { data: [] }
+      registrationFilterIds = ids
+    }
+
+    if (params?.branchId) {
+      const { data: branchRegs } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('branch_id', params.branchId)
+      const ids = (branchRegs || []).map((r: any) => r.id)
+      if (ids.length === 0) return { data: [] }
+      if (registrationFilterIds) {
+        registrationFilterIds = registrationFilterIds.filter(id => ids.includes(id))
+        if (registrationFilterIds.length === 0) return { data: [] }
+      } else {
+        registrationFilterIds = ids
+      }
+    }
 
     let query = supabase
       .from('equipment_distributions')
@@ -28,6 +58,10 @@ export async function getEquipmentDistributions(params?: {
         )
       `)
       .order('created_at', { ascending: false })
+
+    if (registrationFilterIds !== null) {
+      query = query.in('registration_id', registrationFilterIds)
+    }
 
     if (params?.status && params.status !== 'all') {
       query = query.eq('status', params.status)
@@ -126,6 +160,11 @@ export async function createEquipment(
   data: EquipmentFormData
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang mencatat distribusi perlengkapan.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const handedAt =
@@ -159,6 +198,11 @@ export async function updateEquipment(
   data: EquipmentFormData
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang memperbarui perlengkapan.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const handedAt =
@@ -195,6 +239,11 @@ export async function quickHandOverEquipment(
   id: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menyerahkan perlengkapan.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const { error } = await supabase
@@ -223,6 +272,11 @@ export async function deleteEquipment(
   id: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menghapus perlengkapan.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const { error } = await supabase.from('equipment_distributions').delete().eq('id', id)

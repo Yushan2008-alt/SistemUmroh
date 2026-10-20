@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getActionCaller } from '@/lib/auth-guard'
 import type { Hotel, HotelFormData } from './types'
 
 export async function getHotels(search?: string, city?: string): Promise<{ data: Hotel[]; error?: string }> {
@@ -60,6 +61,11 @@ export async function getHotelById(id: number): Promise<{ data: Hotel | null; er
 
 export async function createHotel(data: HotelFormData): Promise<{ success: boolean; data?: Hotel; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menambah hotel.' }
+    }
+
     const supabase = createAdminClient() as any
 
     if (!data.name?.trim()) {
@@ -94,6 +100,11 @@ export async function createHotel(data: HotelFormData): Promise<{ success: boole
 
 export async function updateHotel(id: number, data: Partial<HotelFormData>): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang mengubah hotel.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const payload: any = {
@@ -129,6 +140,11 @@ export async function updateHotel(id: number, data: Partial<HotelFormData>): Pro
 
 export async function deleteHotel(id: number): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menghapus hotel.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const { error } = await supabase

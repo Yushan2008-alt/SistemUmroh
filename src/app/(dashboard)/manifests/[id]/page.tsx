@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getPackageManifest } from '@/modules/operations'
 import { ManifestEditor } from '@/modules/operations'
+import { requireAuthRole } from '@/lib/auth-guard'
 
 interface ManifestDetailPageProps {
   params: Promise<{ id: string }>
@@ -12,6 +13,7 @@ export const metadata = {
 }
 
 export default async function ManifestDetailPage({ params }: ManifestDetailPageProps) {
+  const caller = await requireAuthRole(['super_admin', 'admin'])
   const { id } = await params
   const packageId = parseInt(id, 10)
 
@@ -23,6 +25,11 @@ export default async function ManifestDetailPage({ params }: ManifestDetailPageP
 
   if (!packageData || error) {
     notFound()
+  }
+
+  // Branch isolation check for admin
+  if (caller.role === 'admin' && caller.branchId && packageData.branch_id !== caller.branchId) {
+    redirect('/manifests')
   }
 
   return (

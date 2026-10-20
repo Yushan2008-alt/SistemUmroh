@@ -11,6 +11,7 @@ export * from './registration-filter';
 export * from './registration-form';
 export * from './registration-edit';
 export * from './registration-detail';
+export * from './pilgrim-card-modal';
 
 export * from './documents.actions';
 export * from './documents-table';

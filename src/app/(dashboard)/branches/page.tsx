@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { getBranches } from '@/modules/system'
 import { BranchesTable } from '@/modules/system'
 
@@ -11,6 +12,7 @@ export const metadata = {
 }
 
 export default async function BranchesPage({ searchParams }: PageProps) {
+  await requireAuthRole(['super_admin'])
   const { q } = await searchParams
   const { data: branches } = await getBranches(q)
 

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { requireAuthRole } from '@/lib/auth-guard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getUserById, getUserFormOptions } from '@/modules/system'
 import { UserForm } from '@/modules/system'
@@ -13,6 +14,7 @@ export const metadata = {
 }
 
 export default async function EditUserPage({ params }: EditUserPageProps) {
+  await requireAuthRole(['super_admin', 'admin'])
   const { id } = await params
 
   const [user, { branches }] = await Promise.all([

@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getUserFormOptions } from '@/modules/system'
 import { UserForm } from '@/modules/system'
@@ -8,6 +9,7 @@ export const metadata = {
 }
 
 export default async function CreateUserPage() {
+  await requireAuthRole(['super_admin', 'admin'])
   const { branches } = await getUserFormOptions()
 
   return (

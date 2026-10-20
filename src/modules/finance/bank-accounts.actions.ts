@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getActionCaller } from '@/lib/auth-guard'
 import type { BankAccount, BankAccountFormData } from './types'
 
 export async function getBankAccounts(branchId?: number, search?: string): Promise<{ data: BankAccount[]; error?: string }> {
@@ -59,6 +60,11 @@ export async function getAvailableBranches(): Promise<{ id: number; name: string
 
 export async function createBankAccount(data: BankAccountFormData): Promise<{ success: boolean; data?: BankAccount; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menambah rekening bank.' }
+    }
+
     const supabase = createAdminClient() as any
 
     if (!data.bank_name?.trim() || !data.account_number?.trim() || !data.account_holder?.trim()) {
@@ -93,6 +99,11 @@ export async function createBankAccount(data: BankAccountFormData): Promise<{ su
 
 export async function updateBankAccount(id: number, data: Partial<BankAccountFormData>): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang mengubah rekening bank.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const payload: any = {
@@ -126,6 +137,11 @@ export async function updateBankAccount(id: number, data: Partial<BankAccountFor
 
 export async function deleteBankAccount(id: number): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang menghapus rekening bank.' }
+    }
+
     const supabase = createAdminClient() as any
 
     const { error } = await supabase

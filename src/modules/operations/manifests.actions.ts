@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getActionCaller } from '@/lib/auth-guard'
 import type {
   ManifestPackage,
   ManifestRegistrationItem,
@@ -9,7 +10,8 @@ import type {
 } from './types'
 
 export async function getManifestPackages(
-  search?: string
+  search?: string,
+  branchId?: number | null
 ): Promise<{ data: ManifestPackage[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
@@ -31,6 +33,10 @@ export async function getManifestPackages(
         registrations (id, status)
       `)
       .order('departure_date', { ascending: false })
+
+    if (branchId) {
+      query = query.eq('branch_id', branchId)
+    }
 
     if (search && search.trim() !== '') {
       query = query.ilike('name', `%${search.trim()}%`)
@@ -163,7 +169,19 @@ export async function updateManifestEntries(
   rows: Record<number, ManifestRowInput>
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berwenang mengatur manifest.' }
+    }
+
     const supabase = createAdminClient() as any
+
+    if (caller.role === 'admin' && caller.branchId) {
+      const { data: pkg } = await supabase.from('packages').select('branch_id').eq('id', packageId).single()
+      if (pkg && pkg.branch_id !== caller.branchId) {
+        return { success: false, error: 'Akses ditolak: Anda hanya dapat mengatur manifest paket di cabang Anda sendiri.' }
+      }
+    }
 
     const entriesToUpsert = Object.entries(rows).map(([regIdStr, row]) => {
       const regId = Number(regIdStr)

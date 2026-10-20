@@ -34,6 +34,10 @@ export async function getActivityLogs(
     query = query.eq('user_id', filters.userId)
   }
 
+  if (filters?.branchId && filters.branchId > 0) {
+    query = query.eq('branch_id', filters.branchId)
+  }
+
   const { data, error } = await query
 
   if (error) {

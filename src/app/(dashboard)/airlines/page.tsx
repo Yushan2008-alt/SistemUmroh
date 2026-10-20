@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { getAirlines } from '@/modules/operations'
 import { AirlinesTable } from '@/modules/operations'
 
@@ -11,6 +12,7 @@ export const metadata = {
 }
 
 export default async function AirlinesPage({ searchParams }: PageProps) {
+  await requireAuthRole(['super_admin', 'admin'])
   const { q } = await searchParams
   const { data: airlines } = await getAirlines(q)
 

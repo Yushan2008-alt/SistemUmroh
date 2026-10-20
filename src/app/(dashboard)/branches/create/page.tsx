@@ -1,3 +1,4 @@
+import { requireAuthRole } from '@/lib/auth-guard'
 import { BranchForm } from '@/modules/system'
 
 export const metadata = {
@@ -5,7 +6,8 @@ export const metadata = {
   description: 'Daftarkan kantor cabang operasional baru.',
 }
 
-export default function CreateBranchPage() {
+export default async function CreateBranchPage() {
+  await requireAuthRole(['super_admin'])
   return (
     <div className="container mx-auto py-2 sm:py-4">
       <BranchForm isEdit={false} />

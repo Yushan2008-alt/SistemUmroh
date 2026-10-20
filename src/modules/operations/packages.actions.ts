@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getActionCaller } from '@/lib/auth-guard'
 import type {
   PackageItem,
   PackageFormData,
@@ -151,18 +152,16 @@ export async function getPackageById(id: number): Promise<{ data: any | null; er
 
 export async function createPackage(data: PackageFormData): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient() as any
-    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
-    const { data: { user } } = await serverSupabase.auth.getUser()
-    if (user) {
-      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
-      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
-        return { success: false, error: 'Akses ditolak: Hanya staf/admin yang berhak membuat paket perjalanan.' }
-      }
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berhak membuat paket perjalanan.' }
     }
 
+    const assignedBranchId = caller.role === 'admin' && caller.branchId ? caller.branchId : Number(data.branch_id)
+
+    const supabase = createAdminClient() as any
     const { error } = await supabase.from('packages').insert({
-      branch_id: Number(data.branch_id),
+      branch_id: assignedBranchId,
       name: data.name.trim(),
       type: data.type,
       status: data.status,
@@ -194,20 +193,26 @@ export async function createPackage(data: PackageFormData): Promise<{ success: b
 
 export async function updatePackage(id: number, data: PackageFormData): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berhak memperbarui paket perjalanan.' }
+    }
+
     const supabase = createAdminClient() as any
-    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
-    const { data: { user } } = await serverSupabase.auth.getUser()
-    if (user) {
-      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
-      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
-        return { success: false, error: 'Akses ditolak: Hanya staf/admin yang berhak memperbarui paket perjalanan.' }
+
+    if (caller.role === 'admin' && caller.branchId) {
+      const { data: pkgCheck } = await supabase.from('packages').select('branch_id').eq('id', id).single()
+      if (pkgCheck && pkgCheck.branch_id !== caller.branchId) {
+        return { success: false, error: 'Akses ditolak: Anda hanya dapat memperbarui paket di cabang Anda sendiri.' }
       }
     }
+
+    const assignedBranchId = caller.role === 'admin' && caller.branchId ? caller.branchId : Number(data.branch_id)
 
     const { error } = await supabase
       .from('packages')
       .update({
-        branch_id: Number(data.branch_id),
+        branch_id: assignedBranchId,
         name: data.name.trim(),
         type: data.type,
         status: data.status,
@@ -242,13 +247,17 @@ export async function updatePackage(id: number, data: PackageFormData): Promise<
 
 export async function deletePackage(id: number): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || !['super_admin', 'admin'].includes(caller.role)) {
+      return { success: false, error: 'Akses ditolak: Hanya staf resmi yang berhak menghapus paket perjalanan.' }
+    }
+
     const supabase = createAdminClient() as any
-    const serverSupabase = await (await import('@/lib/supabase/server')).createClient()
-    const { data: { user } } = await serverSupabase.auth.getUser()
-    if (user) {
-      const { data: prof } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).maybeSingle()
-      if (prof?.role === 'agent' || prof?.role === 'pilgrim') {
-        return { success: false, error: 'Akses ditolak: Hanya staf/admin yang berhak menghapus paket perjalanan.' }
+
+    if (caller.role === 'admin' && caller.branchId) {
+      const { data: pkgCheck } = await supabase.from('packages').select('branch_id').eq('id', id).single()
+      if (pkgCheck && pkgCheck.branch_id !== caller.branchId) {
+        return { success: false, error: 'Akses ditolak: Anda hanya dapat menghapus paket di cabang Anda sendiri.' }
       }
     }
 

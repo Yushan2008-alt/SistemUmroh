@@ -22,6 +22,7 @@ import {
   AlertCircle,
   ExternalLink,
 } from 'lucide-react'
+import { PilgrimCardModal } from './pilgrim-card-modal'
 
 interface RegistrationDetailViewProps {
   registration: RegistrationListItem
@@ -32,6 +33,7 @@ export function RegistrationDetailView({ registration: initialData }: Registrati
   const [data, setData] = useState(initialData)
   const [status, setStatus] = useState<RegistrationStatus>(initialData.status)
   const [savingStatus, setSavingStatus] = useState(false)
+  const [showCardModal, setShowCardModal] = useState(false)
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -128,13 +130,23 @@ export function RegistrationDetailView({ registration: initialData }: Registrati
           </div>
         </div>
 
-        <Link
-          href={`/registrations/${data.id}/edit`}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium text-sm transition-colors shadow-xs self-start sm:self-auto"
-        >
-          <Edit className="h-4 w-4" />
-          <span>Edit Pendaftaran</span>
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowCardModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground border border-border rounded-lg font-medium text-sm transition-colors shadow-xs cursor-pointer"
+          >
+            <FileBadge className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Cetak Kartu Jamaah</span>
+          </button>
+          <Link
+            href={`/registrations/${data.id}/edit`}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium text-sm transition-colors shadow-xs"
+          >
+            <Edit className="h-4 w-4" />
+            <span>Edit Pendaftaran</span>
+          </Link>
+        </div>
       </div>
 
       {/* 3 Metric Cards */}
@@ -371,6 +383,13 @@ export function RegistrationDetailView({ registration: initialData }: Registrati
           </div>
         )}
       </div>
+
+      {/* Modal Cetak Kartu Jamaah */}
+      <PilgrimCardModal
+        registration={data}
+        isOpen={showCardModal}
+        onClose={() => setShowCardModal(false)}
+      />
     </div>
   )
 }

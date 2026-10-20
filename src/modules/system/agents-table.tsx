@@ -159,10 +159,19 @@ export function AgentsTable({
                       <div className="font-semibold text-foreground flex items-center gap-2">
                         <span>{agent.name}</span>
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">
                           {agent.code}
                         </span>
+                        {agent.profile_id ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            Akun Aktif
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            Tanpa Akun
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-5 py-4">

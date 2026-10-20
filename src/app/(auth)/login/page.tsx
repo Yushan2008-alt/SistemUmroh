@@ -367,9 +367,6 @@ export default function LoginPage() {
                 </>
               )}
             </button>
-            <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 font-normal">
-              Akun Google otomatis terdaftar dengan peran <span className="font-semibold text-emerald-600 dark:text-emerald-400">Jamaah</span>.
-            </p>
           </div>
 
           {/* Divider */}

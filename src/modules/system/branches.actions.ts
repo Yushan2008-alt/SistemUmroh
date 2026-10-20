@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getActionCaller } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 import type { Branch, BranchFormData } from './types'
 
@@ -55,6 +56,11 @@ export async function getBranchById(id: number): Promise<{ data: Branch | null; 
 
 export async function createBranch(data: BranchFormData): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || caller.role !== 'super_admin') {
+      return { success: false, error: 'Akses ditolak: Hanya Super Admin yang berhak menambah cabang.' }
+    }
+
     const supabase = createAdminClient() as any
 
     // Validasi kode unik
@@ -102,6 +108,11 @@ export async function createBranch(data: BranchFormData): Promise<{ success: boo
 
 export async function updateBranch(id: number, data: BranchFormData): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || caller.role !== 'super_admin') {
+      return { success: false, error: 'Akses ditolak: Hanya Super Admin yang berhak memperbarui cabang.' }
+    }
+
     const supabase = createAdminClient() as any
 
     // Validasi kode unik (selain diri sendiri)
@@ -153,6 +164,11 @@ export async function updateBranch(id: number, data: BranchFormData): Promise<{ 
 
 export async function deleteBranch(id: number): Promise<{ success: boolean; error?: string }> {
   try {
+    const caller = await getActionCaller()
+    if (!caller || caller.role !== 'super_admin') {
+      return { success: false, error: 'Akses ditolak: Hanya Super Admin yang berhak menghapus cabang.' }
+    }
+
     const supabase = createAdminClient() as any
 
     // Cek apakah ada pendaftaran aktif atau paket di cabang ini

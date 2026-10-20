@@ -125,7 +125,13 @@ export interface RegistrationListItem {
     name: string
     phone: string
     passport_number: string | null
+    passport_expiry?: string | null
     nik: string
+    gender?: Gender
+    birth_date?: string | null
+    emergency_contact_name?: string | null
+    emergency_contact_phone?: string | null
+    address?: string | null
   } | null
   packages: {
     id: number

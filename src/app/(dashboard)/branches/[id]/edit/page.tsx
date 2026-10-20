@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { requireAuthRole } from '@/lib/auth-guard'
 import { getBranchById } from '@/modules/system'
 import { BranchForm } from '@/modules/system'
 
@@ -12,6 +13,7 @@ export const metadata = {
 }
 
 export default async function EditBranchPage({ params }: EditBranchPageProps) {
+  await requireAuthRole(['super_admin'])
   const { id } = await params
   const branchId = parseInt(id, 10)
 
