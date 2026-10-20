@@ -52,7 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script
           src={snapUrl}
           data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-          strategy="lazyOnload"
+          strategy="afterInteractive"
         />
       </body>
     </html>

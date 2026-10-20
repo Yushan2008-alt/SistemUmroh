@@ -585,7 +585,12 @@ export async function syncMidtransTransactionStatus(
     const qrAction = statusResponse.actions?.find(
       (a: any) => a.name === 'generate-qr-code' || a.name === 'generate-qr-code-v2'
     )
-    const qrCodeUrl = qrAction?.url || statusResponse.qr_code_url || null
+    const qrCodeUrl =
+      qrAction?.url ||
+      statusResponse.qr_code_url ||
+      (statusResponse.transaction_id
+        ? `https://api.sandbox.midtrans.com/v2/qris/${statusResponse.transaction_id}/qr-code`
+        : null)
     const deeplinkAction = statusResponse.actions?.find((a: any) => a.name === 'deeplink-redirect')
     const deeplinkUrl = deeplinkAction?.url || null
 
@@ -658,6 +663,108 @@ export async function syncMidtransTransactionStatus(
 
     console.error('syncMidtransTransactionStatus error:', err)
     return { success: false, message: err.message || 'Gagal menyinkronkan status dengan Midtrans' }
+  }
+}
+
+/**
+ * Simulate QRIS Payment via Midtrans Sandbox Simulator API
+ */
+export async function simulateMidtransQrisPayment(
+  paymentId: number,
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const supabase = createAdminClient() as any
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('amount, paid_amount')
+      .eq('id', paymentId)
+      .single()
+
+    const remaining = Math.max(0, (Number(payment?.amount) || 0) - (Number(payment?.paid_amount) || 0))
+    const grossAmount = remaining > 0 ? remaining : 10000
+
+    let qrUrl: string | null = null
+
+    if (isMidtransConfigured()) {
+      try {
+        const coreApi = getMidtransCoreApi()
+        let statusRes: any
+        try {
+          statusRes = await coreApi.transaction.status(orderId)
+        } catch (e: any) {
+          // If transaction not chosen in Snap yet, initialize it as QRIS charge in Midtrans Sandbox
+          try {
+            statusRes = await coreApi.charge({
+              payment_type: 'qris',
+              transaction_details: {
+                order_id: orderId,
+                gross_amount: Math.round(grossAmount),
+              },
+              qris: {
+                acquirer: 'gopay',
+              },
+            })
+          } catch (chargeErr) {
+            console.warn('Direct charge initialization error:', chargeErr)
+          }
+        }
+
+        const qrAction = statusRes?.actions?.find(
+          (a: any) => a.name === 'generate-qr-code' || a.name === 'generate-qr-code-v2'
+        )
+        qrUrl =
+          qrAction?.url ||
+          statusRes?.qr_code_url ||
+          (statusRes?.transaction_id
+            ? `https://api.sandbox.midtrans.com/v2/qris/${statusRes.transaction_id}/qr-code`
+            : null)
+
+        if (qrUrl) {
+          const p1 = new URLSearchParams()
+          p1.append('qrCodeUrl', qrUrl)
+          const s1 = await fetch('https://simulator.sandbox.midtrans.com/v2/qris/payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: p1.toString(),
+          })
+          const html1 = await s1.text()
+          const refMatch = html1.match(/name="referenceId" type="hidden" value="([^"]+)"/)
+          const expMatch = html1.match(/name="exploreData" type="hidden" value="([\s\S]*?)">\s*<div/)
+
+          if (refMatch && expMatch) {
+            const referenceId = refMatch[1]
+            const exploreData = expMatch[1].replace(/&quot;/g, '"')
+
+            const p2 = new URLSearchParams()
+            p2.append('referenceId', referenceId)
+            p2.append('exploreData', exploreData)
+            p2.append('issuer', 'gopay')
+
+            await fetch('https://simulator.sandbox.midtrans.com/v2/qris/payment/gopay', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: p2.toString(),
+            })
+          }
+        }
+      } catch (simApiErr) {
+        console.warn('Sandbox QRIS Simulator trigger error:', simApiErr)
+      }
+    }
+
+    // Process completion in our DB
+    const finishRes = await handleMidtransSnapSuccess(
+      paymentId,
+      orderId,
+      grossAmount,
+      'QRIS (Sandbox Simulator)'
+    )
+
+    return finishRes
+  } catch (err: any) {
+    console.error('simulateMidtransQrisPayment error:', err)
+    return { success: false, message: err.message || 'Gagal memproses simulasi pembayaran QRIS' }
   }
 }
 
