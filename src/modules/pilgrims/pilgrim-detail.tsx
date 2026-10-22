@@ -311,7 +311,7 @@ export function PilgrimDetailView({ pilgrim, userRole }: PilgrimDetailViewProps)
                     {doc.type.replace('_', ' ')}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[150px]">
-                    {doc.file_name || 'File terupload'}
+                    {doc.original_name || doc.file_path || 'File terupload'}
                   </div>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 capitalize">

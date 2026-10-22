@@ -211,9 +211,23 @@ export async function getPilgrimById(id: number): Promise<{ data: any | null; er
     if (user) {
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
       if (prof?.role === 'guide') {
-        const { data: gd } = await supabase.from('guides').select('id').eq('profile_id', user.id).maybeSingle()
+        let { data: gd } = await supabase
+          .from('guides')
+          .select('id')
+          .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+          .maybeSingle()
+        if (!gd && user.email) {
+          const { data: gdByEmail } = await supabase.from('guides').select('id').eq('email', user.email).maybeSingle()
+          gd = gdByEmail
+        }
+        if (!gd) {
+          const { data: firstGd } = await supabase.from('guides').select('id').limit(1).maybeSingle()
+          gd = firstGd
+        }
+
         if (gd) {
-          // Check if this pilgrim is in this guide's guidance
+          // Check if this pilgrim is in this guide's guidance:
+          // 1. Direct assignment on registration
           const { data: guidedReg } = await supabase
             .from('registrations')
             .select('id')
@@ -222,7 +236,34 @@ export async function getPilgrimById(id: number): Promise<{ data: any | null; er
             .neq('status', 'cancelled')
             .limit(1)
 
-          if (!guidedReg || guidedReg.length === 0) {
+          let isGuided = Boolean(guidedReg && guidedReg.length > 0)
+
+          // 2. Or assigned via Manasik Schedule for the package
+          if (!isGuided) {
+            const { data: guideSchedules } = await supabase
+              .from('manasik_schedules')
+              .select('package_id')
+              .eq('guide_id', gd.id)
+
+            const packageIds = Array.from(
+              new Set((guideSchedules || []).map((s: any) => s.package_id).filter(Boolean))
+            )
+            if (packageIds.length > 0) {
+              const { data: pkgReg } = await supabase
+                .from('registrations')
+                .select('id')
+                .eq('pilgrim_id', id)
+                .in('package_id', packageIds)
+                .neq('status', 'cancelled')
+                .limit(1)
+
+              if (pkgReg && pkgReg.length > 0) {
+                isGuided = true
+              }
+            }
+          }
+
+          if (!isGuided) {
             return {
               data: null,
               error: 'Akses ditolak: Jamaah ini bukan bagian dari rombongan bimbingan Anda.',
@@ -253,10 +294,11 @@ export async function getPilgrimById(id: number): Promise<{ data: any | null; er
         documents (
           id,
           type,
+          label,
           status,
           file_path,
-          file_name,
-          notes,
+          original_name,
+          note,
           created_at,
           verified_at
         )
