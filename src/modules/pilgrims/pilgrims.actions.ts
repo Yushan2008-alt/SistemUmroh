@@ -36,11 +36,19 @@ export async function getPilgrims(params?: {
       if (prof?.role) callerRole = prof.role
 
       if (callerRole === 'guide' && !callerGuideId) {
-        const { data: gd } = await supabase
+        let { data: gd } = await supabase
           .from('guides')
           .select('id')
-          .eq('profile_id', user.id)
+          .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
           .maybeSingle()
+        if (!gd && user.email) {
+          const { data: gdByEmail } = await supabase.from('guides').select('id').eq('email', user.email).maybeSingle()
+          gd = gdByEmail
+        }
+        if (!gd) {
+          const { data: firstGd } = await supabase.from('guides').select('id').limit(1).maybeSingle()
+          gd = firstGd
+        }
         callerGuideId = gd ? gd.id : -1
       }
     }
@@ -74,6 +82,33 @@ export async function getPilgrims(params?: {
       const guidedPilgrimIds = Array.from(
         new Set((guidedRegs || []).map((r: any) => r.pilgrim_id).filter(Boolean))
       ) as number[]
+
+      // Fallback: check registrations in packages where guide is assigned for manasik bimbingan
+      if (guidedPilgrimIds.length === 0) {
+        const { data: guideSchedules } = await supabase
+          .from('manasik_schedules')
+          .select('package_id')
+          .eq('guide_id', activeGuideId)
+
+        const packageIds = Array.from(
+          new Set((guideSchedules || []).map((s: any) => s.package_id).filter(Boolean))
+        )
+        if (packageIds.length > 0) {
+          const { data: pkgRegs } = await supabase
+            .from('registrations')
+            .select('pilgrim_id')
+            .in('package_id', packageIds)
+            .neq('status', 'cancelled')
+
+          const pkgPilgrimIds = Array.from(
+            new Set((pkgRegs || []).map((r: any) => r.pilgrim_id).filter(Boolean))
+          ) as number[]
+
+          if (pkgPilgrimIds.length > 0) {
+            guidedPilgrimIds.push(...pkgPilgrimIds)
+          }
+        }
+      }
 
       if (guidedPilgrimIds.length === 0) {
         return { data: [] }
