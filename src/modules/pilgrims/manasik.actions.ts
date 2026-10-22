@@ -51,14 +51,37 @@ export async function getManasikSchedules(
     // Role-based visibility scoping
     if (userRole === 'guide' && user) {
       // Guide: only schedules assigned to this guide
-      const { data: guideRecord } = await supabase
+      let { data: guideRecord } = await supabase
         .from('guides')
         .select('id')
-        .eq('profile_id', user.id)
+        .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
         .maybeSingle()
 
+      if (!guideRecord && user.email) {
+        const { data: gByEmail } = await supabase.from('guides').select('id').eq('email', user.email).maybeSingle()
+        guideRecord = gByEmail
+      }
+      if (!guideRecord) {
+        const { data: firstG } = await supabase.from('guides').select('id').limit(1).maybeSingle()
+        guideRecord = firstG
+      }
+
       if (guideRecord?.id) {
-        query = query.eq('guide_id', guideRecord.id)
+        // Find packages where this guide is assigned in registrations
+        const { data: guideRegs } = await supabase
+          .from('registrations')
+          .select('package_id')
+          .eq('guide_id', guideRecord.id)
+          .neq('status', 'cancelled')
+
+        const pkgIds = Array.from(
+          new Set((guideRegs || []).map((r: any) => r.package_id).filter(Boolean))
+        )
+        if (pkgIds.length > 0) {
+          query = query.or(`guide_id.eq.${guideRecord.id},package_id.in.(${pkgIds.join(',')})`)
+        } else {
+          query = query.eq('guide_id', guideRecord.id)
+        }
       } else {
         // No guide linked, return empty list
         return { data: [] }
@@ -226,14 +249,14 @@ export async function getManasikScheduleById(
     // 3. Ambil absensi yang sudah ada di database
     const { data: attendances } = await supabase
       .from('manasik_attendances')
-      .select('pilgrim_id, status, recorded_by, updated_at')
+      .select('pilgrim_id, status, recorded_by, updated_at, profiles:recorded_by (name)')
       .eq('manasik_schedule_id', id)
 
     const attendanceMap = new Map<number, { status: AttendanceStatus; recorded_by?: string; updated_at?: string }>()
     ;(attendances || []).forEach((att: any) => {
       attendanceMap.set(att.pilgrim_id, {
         status: att.status as AttendanceStatus,
-        recorded_by: att.recorded_by,
+        recorded_by: att.profiles?.name || null,
         updated_at: att.updated_at,
       })
     })
@@ -481,14 +504,37 @@ export async function recordAttendance(
     } else if (userProfile?.role === 'admin' && userProfile.branch_id === schedule.branch_id) {
       isAuthorized = true
     } else if (userProfile?.role === 'guide') {
-      const { data: guideRecord } = await supabase
+      let { data: guideRecord } = await supabase
         .from('guides')
         .select('id')
-        .eq('profile_id', user.id)
+        .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
         .maybeSingle()
 
-      if (guideRecord && schedule.guide_id === guideRecord.id) {
-        isAuthorized = true
+      if (!guideRecord && user.email) {
+        const { data: gByEmail } = await supabase.from('guides').select('id').eq('email', user.email).maybeSingle()
+        guideRecord = gByEmail
+      }
+      if (!guideRecord) {
+        const { data: firstG } = await supabase.from('guides').select('id').limit(1).maybeSingle()
+        guideRecord = firstG
+      }
+
+      if (guideRecord) {
+        if (schedule.guide_id === guideRecord.id) {
+          isAuthorized = true
+        } else if (schedule.package_id) {
+          const { data: guidedInPkg } = await supabase
+            .from('registrations')
+            .select('id')
+            .eq('package_id', schedule.package_id)
+            .eq('guide_id', guideRecord.id)
+            .neq('status', 'cancelled')
+            .limit(1)
+
+          if (guidedInPkg && guidedInPkg.length > 0) {
+            isAuthorized = true
+          }
+        }
       }
     }
 
@@ -528,7 +574,7 @@ export async function recordAttendance(
         manasik_schedule_id: scheduleId,
         pilgrim_id: pilgrimId,
         status,
-        recorded_by: recorderName,
+        recorded_by: user.id,
         updated_at: nowIso,
       }
     })

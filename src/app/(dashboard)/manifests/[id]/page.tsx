@@ -13,7 +13,7 @@ export const metadata = {
 }
 
 export default async function ManifestDetailPage({ params }: ManifestDetailPageProps) {
-  const caller = await requireAuthRole(['super_admin', 'admin'])
+  const caller = await requireAuthRole(['super_admin', 'admin', 'guide'])
   const { id } = await params
   const packageId = parseInt(id, 10)
 
@@ -34,7 +34,11 @@ export default async function ManifestDetailPage({ params }: ManifestDetailPageP
 
   return (
     <div className="container mx-auto py-2 sm:py-4">
-      <ManifestEditor pkg={packageData} registrations={registrations} />
+      <ManifestEditor
+        pkg={packageData}
+        registrations={registrations}
+        readOnly={caller.role === 'guide'}
+      />
     </div>
   )
 }

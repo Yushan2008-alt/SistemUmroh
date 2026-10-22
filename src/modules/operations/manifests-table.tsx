@@ -17,11 +17,13 @@ import type { ManifestPackage } from './types'
 interface ManifestsPackageTableProps {
   initialPackages: ManifestPackage[]
   currentSearch?: string
+  userRole?: string
 }
 
 export function ManifestsPackageTable({
   initialPackages,
   currentSearch = '',
+  userRole = 'super_admin',
 }: ManifestsPackageTableProps) {
   const router = useRouter()
   const [packages] = useState<ManifestPackage[]>(initialPackages)
@@ -52,7 +54,9 @@ export function ManifestsPackageTable({
           Manifest &amp; Rooming Hotel
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Pilih paket keberangkatan untuk mengatur penempatan kamar hotel, bus jemputan, dan nomor kursi jamaah.
+          {userRole === 'guide'
+            ? 'Menampilkan daftar paket rombongan bimbingan Anda untuk memantau alokasi kamar hotel, bus, dan manifes penerbangan.'
+            : 'Pilih paket keberangkatan untuk mengatur penempatan kamar hotel, bus jemputan, dan nomor kursi jamaah.'}
         </p>
       </div>
 
@@ -158,7 +162,7 @@ export function ManifestsPackageTable({
                         href={`/manifests/${pkg.id}`}
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold transition-colors"
                       >
-                        Atur Manifest
+                        {userRole === 'guide' ? 'Detail Manifest' : 'Atur Manifest'}
                         <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
                     </td>

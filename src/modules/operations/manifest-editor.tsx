@@ -23,9 +23,10 @@ import { updateManifestEntries } from './manifests.actions'
 interface ManifestEditorProps {
   pkg: any
   registrations: ManifestRegistrationItem[]
+  readOnly?: boolean
 }
 
-export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
+export function ManifestEditor({ pkg, registrations, readOnly = false }: ManifestEditorProps) {
   const router = useRouter()
 
   // Inisialisasi state baris manifest dari data yang ada
@@ -110,7 +111,7 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
               <span className="text-xs text-muted-foreground">{pkg.name}</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">
-              Alokasi Kamar &amp; Transportasi
+              {readOnly ? 'Detail Manifest & Rooming Rombongan' : 'Alokasi Kamar & Transportasi'}
             </h1>
           </div>
         </div>
@@ -124,24 +125,31 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
             <Printer className="w-4 h-4 text-muted-foreground" />
             Cetak Manifest Resmi
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isLoading || registrations.length === 0}
-            className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-md disabled:opacity-50"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Simpan Manifest
-              </>
-            )}
-          </button>
+          {readOnly ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-semibold">
+              <Users className="w-3.5 h-3.5" />
+              Mode Panduan Muthawif (Read-Only)
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isLoading || registrations.length === 0}
+              className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-md disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Simpan Manifest
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -251,8 +259,9 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
                           type="text"
                           value={row.room_number}
                           onChange={(e) => handleRowChange(r.id, 'room_number', e.target.value)}
-                          placeholder="Mis. 402"
-                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                          disabled={readOnly}
+                          placeholder={readOnly ? '-' : 'Mis. 402'}
+                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium disabled:opacity-90 disabled:bg-muted/30 disabled:cursor-default"
                         />
                       </td>
 
@@ -262,7 +271,8 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
                           onChange={(e) =>
                             handleRowChange(r.id, 'room_type', e.target.value as any)
                           }
-                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                          disabled={readOnly}
+                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium disabled:opacity-90 disabled:bg-muted/30 disabled:cursor-default"
                         >
                           <option value="quad">Quad (4 org)</option>
                           <option value="triple">Triple (3 org)</option>
@@ -275,8 +285,9 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
                           type="text"
                           value={row.bus_number}
                           onChange={(e) => handleRowChange(r.id, 'bus_number', e.target.value)}
-                          placeholder="Bus 1"
-                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                          disabled={readOnly}
+                          placeholder={readOnly ? '-' : 'Bus 1'}
+                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-90 disabled:bg-muted/30 disabled:cursor-default"
                         />
                       </td>
 
@@ -285,8 +296,9 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
                           type="text"
                           value={row.seat_number}
                           onChange={(e) => handleRowChange(r.id, 'seat_number', e.target.value)}
-                          placeholder="12A"
-                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
+                          disabled={readOnly}
+                          placeholder={readOnly ? '-' : '12A'}
+                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono disabled:opacity-90 disabled:bg-muted/30 disabled:cursor-default"
                         />
                       </td>
 
@@ -295,8 +307,9 @@ export function ManifestEditor({ pkg, registrations }: ManifestEditorProps) {
                           type="text"
                           value={row.mahram_group}
                           onChange={(e) => handleRowChange(r.id, 'mahram_group', e.target.value)}
-                          placeholder="Keluarga Budi"
-                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                          disabled={readOnly}
+                          placeholder={readOnly ? '-' : 'Keluarga Budi'}
+                          className="w-full px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-90 disabled:bg-muted/30 disabled:cursor-default"
                         />
                       </td>
                     </tr>

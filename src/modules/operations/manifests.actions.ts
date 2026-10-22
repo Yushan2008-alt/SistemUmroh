@@ -11,7 +11,8 @@ import type {
 
 export async function getManifestPackages(
   search?: string,
-  branchId?: number | null
+  branchId?: number | null,
+  guideId?: number | null
 ): Promise<{ data: ManifestPackage[]; error?: string }> {
   try {
     const supabase = createAdminClient() as any
@@ -36,6 +37,33 @@ export async function getManifestPackages(
 
     if (branchId) {
       query = query.eq('branch_id', branchId)
+    }
+
+    if (guideId) {
+      // Find packages that either have registrations assigned to this guide OR manasik schedules for this guide
+      const { data: regPackages } = await supabase
+        .from('registrations')
+        .select('package_id')
+        .eq('guide_id', guideId)
+        .neq('status', 'cancelled')
+
+      const { data: manasikPackages } = await supabase
+        .from('manasik_schedules')
+        .select('package_id')
+        .eq('guide_id', guideId)
+
+      const pkgIds = Array.from(
+        new Set([
+          ...(regPackages || []).map((r: any) => r.package_id),
+          ...(manasikPackages || []).map((m: any) => m.package_id),
+        ].filter(Boolean))
+      ) as number[]
+
+      if (pkgIds.length > 0) {
+        query = query.in('id', pkgIds)
+      } else {
+        return { data: [] }
+      }
     }
 
     if (search && search.trim() !== '') {
