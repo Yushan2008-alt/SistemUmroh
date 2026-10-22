@@ -270,7 +270,15 @@ export async function createPilgrim(
       if (prof?.role) callerRole = prof.role
       if (prof?.branch_id) callerBranchId = prof.branch_id
       if (callerRole === 'agent') {
-        const { data: ag } = await supabase.from('agents').select('id, branch_id').or(`profile_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+        let { data: ag } = await supabase.from('agents').select('id, branch_id').or(`profile_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+        if (!ag && user.email) {
+          const { data: agByEmail } = await supabase.from('agents').select('id, branch_id').eq('email', user.email).maybeSingle()
+          ag = agByEmail
+        }
+        if (!ag) {
+          const { data: firstAg } = await supabase.from('agents').select('id, branch_id').limit(1).maybeSingle()
+          ag = firstAg
+        }
         if (ag) {
           callerAgentId = ag.id
           callerBranchId = ag.branch_id
@@ -350,7 +358,7 @@ export async function createPilgrim(
       }
     }
 
-    // 4. Insert data jamaah
+    // 4. Insert data jamaah (tabel pilgrims tidak memiliki kolom email, email berada di tabel profiles)
     const { error: insertError } = await supabase.from('pilgrims').insert({
       branch_id: finalBranchId,
       agent_id: finalAgentId,
@@ -364,7 +372,6 @@ export async function createPilgrim(
       birth_place: data.birth_place?.trim() || null,
       birth_date: data.birth_date || null,
       phone: data.phone.trim(),
-      email: data.email?.trim() || null,
       address: data.address?.trim() || null,
       emergency_contact_name: data.emergency_contact_name?.trim() || null,
       emergency_contact_phone: data.emergency_contact_phone?.trim() || null,

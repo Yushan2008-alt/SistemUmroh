@@ -361,6 +361,7 @@ export async function registerPilgrimWithSteps(formData: FormData): Promise<{
   success: boolean
   message: string
   registrationId?: number
+  paymentItem?: any
 }> {
   try {
     const supabase = await createClient()
@@ -394,13 +395,6 @@ export async function registerPilgrimWithSteps(formData: FormData): Promise<{
 
     const passportFile = formData.get('passportFile') as File | null
     const healthCertFile = formData.get('healthCertFile') as File | null
-
-    if (!passportFile || passportFile.size === 0) {
-      return { success: false, message: 'Berkas scan/foto Paspor wajib diunggah.' }
-    }
-    if (!healthCertFile || healthCertFile.size === 0) {
-      return { success: false, message: 'Berkas Surat Kesehatan / Kartu Vaksin wajib diunggah.' }
-    }
 
     const admin = createAdminClient() as any
 
@@ -467,72 +461,110 @@ export async function registerPilgrimWithSteps(formData: FormData): Promise<{
     const roomSurcharge = roomType === 'triple' ? 1500000 : roomType === 'double' ? 3000000 : 0
     const totalPrice = Number(pkg.price) + roomSurcharge
 
-    // 4. Create or update registration
-    const regCode = `REG-${Date.now().toString().slice(-6)}`
-    const { data: newReg, error: regErr } = await admin
+    // 4. Create or update registration (idempotent for unique_pilgrim_package)
+    const { data: existingReg } = await admin
       .from('registrations')
-      .insert({
-        branch_id: pilgrim.branch_id || pkg.branch_id || 1,
-        pilgrim_id: pilgrim.id,
-        package_id: pkg.id,
-        code: regCode,
-        status: 'confirmed',
-        total_price: totalPrice,
-        notes: `Tipe Kamar: ${roomType.toUpperCase()} (+Rp ${roomSurcharge.toLocaleString('id-ID')}) | Skema Pembayaran: ${paymentScheme === 'dp_50' ? 'Uang Muka 50%' : 'Langsung Lunas 100%'}`,
-        registered_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
+      .select('*')
+      .eq('pilgrim_id', pilgrim.id)
+      .eq('package_id', pkg.id)
+      .maybeSingle()
 
-    if (regErr || !newReg) {
-      return { success: false, message: 'Gagal membuat pendaftaran: ' + (regErr?.message || '') }
-    }
+    let newReg: any
 
-    // 5. Generate Invoices
-    if (paymentScheme === 'dp_50') {
-      const dpAmount = Math.round(totalPrice * 0.5)
-      const settlementAmount = totalPrice - dpAmount
+    const regNotes = `Tipe Kamar: ${roomType.toUpperCase()} (+Rp ${roomSurcharge.toLocaleString('id-ID')}) | Skema Pembayaran: ${paymentScheme === 'dp_50' ? 'Uang Muka 50%' : 'Langsung Lunas 100%'}`
 
-      // DP Invoice
-      await admin.from('payments').insert({
-        branch_id: newReg.branch_id,
-        registration_id: newReg.id,
-        code: `INV-DP-${newReg.code}`,
-        type: 'down_payment',
-        amount: dpAmount,
-        paid_amount: 0,
-        status: 'unpaid',
-        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      })
+    if (existingReg) {
+      const { data: updatedReg, error: updateErr } = await admin
+        .from('registrations')
+        .update({
+          status: 'confirmed',
+          total_price: totalPrice,
+          notes: regNotes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingReg.id)
+        .select()
+        .single()
 
-      // Settlement Invoice
-      await admin.from('payments').insert({
-        branch_id: newReg.branch_id,
-        registration_id: newReg.id,
-        code: `INV-PELUNASAN-${newReg.code}`,
-        type: 'installment',
-        amount: settlementAmount,
-        paid_amount: 0,
-        status: 'unpaid',
-        due_date: pkg.departure_date
-          ? new Date(new Date(pkg.departure_date).getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      })
+      if (updateErr) {
+        return { success: false, message: 'Gagal memperbarui pendaftaran: ' + updateErr.message }
+      }
+      newReg = updatedReg
     } else {
-      // Full Payment Invoice (100%)
-      await admin.from('payments').insert({
-        branch_id: newReg.branch_id,
-        registration_id: newReg.id,
-        code: `INV-LUNAS-${newReg.code}`,
-        type: 'full_payment',
-        amount: totalPrice,
-        paid_amount: 0,
-        status: 'unpaid',
-        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      })
+      const regCode = `REG-${Date.now().toString().slice(-6)}`
+      const { data: createdReg, error: regErr } = await admin
+        .from('registrations')
+        .insert({
+          branch_id: pilgrim.branch_id || pkg.branch_id || 1,
+          pilgrim_id: pilgrim.id,
+          package_id: pkg.id,
+          code: regCode,
+          status: 'confirmed',
+          total_price: totalPrice,
+          notes: regNotes,
+          registered_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (regErr || !createdReg) {
+        return { success: false, message: 'Gagal membuat pendaftaran: ' + (regErr?.message || '') }
+      }
+      newReg = createdReg
     }
 
-    // 6. Pre-seed 6 Standard Documents and attach uploaded files
+    // 5. Generate Invoices if not exists
+    const { data: existingPayments } = await admin
+      .from('payments')
+      .select('*')
+      .eq('registration_id', newReg.id)
+
+    if (!existingPayments || existingPayments.length === 0) {
+      if (paymentScheme === 'dp_50') {
+        const dpAmount = Math.round(totalPrice * 0.5)
+        const settlementAmount = totalPrice - dpAmount
+
+        // DP Invoice
+        await admin.from('payments').insert({
+          branch_id: newReg.branch_id,
+          registration_id: newReg.id,
+          code: `INV-DP-${newReg.code}`,
+          type: 'down_payment',
+          amount: dpAmount,
+          paid_amount: 0,
+          status: 'unpaid',
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        })
+
+        // Settlement Invoice
+        await admin.from('payments').insert({
+          branch_id: newReg.branch_id,
+          registration_id: newReg.id,
+          code: `INV-PELUNASAN-${newReg.code}`,
+          type: 'installment',
+          amount: settlementAmount,
+          paid_amount: 0,
+          status: 'unpaid',
+          due_date: pkg.departure_date
+            ? new Date(new Date(pkg.departure_date).getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        })
+      } else {
+        // Full Payment Invoice (100%)
+        await admin.from('payments').insert({
+          branch_id: newReg.branch_id,
+          registration_id: newReg.id,
+          code: `INV-LUNAS-${newReg.code}`,
+          type: 'full_payment',
+          amount: totalPrice,
+          paid_amount: 0,
+          status: 'unpaid',
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        })
+      }
+    }
+
+    // 6. Pre-seed 6 Standard Documents
     const mandatoryDocs = [
       { type: 'passport', label: 'Paspor Asli (Masa berlaku > 8 bulan)' },
       { type: 'ktp', label: 'KTP Elektronik' },
@@ -562,13 +594,15 @@ export async function registerPilgrimWithSteps(formData: FormData): Promise<{
       await admin.from('documents').insert(docsToInsert)
     }
 
-    // Upload Passport file
+    const bucket = process.env.NEXT_PUBLIC_STORAGE_VAULT_BUCKET || 'documents'
+
+    // Optional Upload Passport file if attached
     if (passportFile && passportFile.size > 0) {
       try {
         const ext = passportFile.name.split('.').pop() || 'jpg'
         const path = `pilgrims/${pilgrim.id}/passport_${Date.now()}.${ext}`
         const buf = Buffer.from(await passportFile.arrayBuffer())
-        await admin.storage.from('documents-vault').upload(path, buf, {
+        await admin.storage.from(bucket).upload(path, buf, {
           contentType: passportFile.type,
           upsert: true,
         })
@@ -589,13 +623,13 @@ export async function registerPilgrimWithSteps(formData: FormData): Promise<{
       }
     }
 
-    // Upload Health/Vaccine Certificate file
+    // Optional Upload Health/Vaccine Certificate file if attached
     if (healthCertFile && healthCertFile.size > 0) {
       try {
         const ext = healthCertFile.name.split('.').pop() || 'jpg'
         const path = `pilgrims/${pilgrim.id}/yellow_card_${Date.now()}.${ext}`
         const buf = Buffer.from(await healthCertFile.arrayBuffer())
-        await admin.storage.from('documents-vault').upload(path, buf, {
+        await admin.storage.from(bucket).upload(path, buf, {
           contentType: healthCertFile.type,
           upsert: true,
         })
@@ -616,15 +650,33 @@ export async function registerPilgrimWithSteps(formData: FormData): Promise<{
       }
     }
 
+    // Fetch active unpaid invoice for immediate checkout
+    const { data: unpaidInvoice } = await admin
+      .from('payments')
+      .select('*')
+      .eq('registration_id', newReg.id)
+      .neq('status', 'paid')
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
     revalidatePath('/dashboard')
     revalidatePath('/payments')
     revalidatePath('/documents')
     revalidatePath('/registrations')
 
+    const formattedPayment = unpaidInvoice ? {
+      ...unpaidInvoice,
+      amount: Number(unpaidInvoice.amount) || 0,
+      paid_amount: Number(unpaidInvoice.paid_amount) || 0,
+      remaining_balance: Math.max(0, (Number(unpaidInvoice.amount) || 0) - (Number(unpaidInvoice.paid_amount) || 0)),
+    } : null
+
     return {
       success: true,
       message: `Alhamdulillah! Pendaftaran paket ${pkg.name} berhasil diverifikasi dan dikonfirmasi.`,
       registrationId: newReg.id,
+      paymentItem: formattedPayment,
     }
   } catch (err: any) {
     console.error('registerPilgrimWithSteps error:', err)

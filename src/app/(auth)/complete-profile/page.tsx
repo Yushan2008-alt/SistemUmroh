@@ -18,6 +18,8 @@ import {
   ArrowRight,
   LogOut,
   ShieldCheck,
+  Upload,
+  FileCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +63,8 @@ export default function CompleteProfilePage() {
   const [passportExpiry, setPassportExpiry] = useState('')
   const [emergencyContactName, setEmergencyContactName] = useState('')
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
+  const [passportFile, setPassportFile] = useState<File | null>(null)
+  const [ktpFile, setKtpFile] = useState<File | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -110,7 +114,7 @@ export default function CompleteProfilePage() {
     setErrorMessage(null)
     setSuccessMessage(null)
 
-        // Front-end Strict Validation for all required fields
+    // Front-end Strict Validation for all required fields
     if (!name.trim()) {
       setErrorMessage('Nama lengkap sesuai KTP wajib diisi.')
       setIsSubmitting(false)
@@ -179,22 +183,24 @@ export default function CompleteProfilePage() {
       return
     }
 
-    const payload: CompleteProfileInput = {
-      name: name.trim(),
-      phone: phone.trim(),
-      gender,
-      nik: cleanNik,
-      birth_place: birthPlace.trim() || null,
-      birth_date: birthDate || null,
-      address: address.trim(),
-      branch_id: Number(branchId),
-      passport_number: passportNumber.trim() || null,
-      passport_expiry: passportExpiry || null,
-      emergency_contact_name: emergencyContactName.trim() || null,
-      emergency_contact_phone: emergencyContactPhone.trim() || null,
-    }
+    const formData = new FormData()
+    formData.append('name', name.trim())
+    formData.append('phone', phone.trim())
+    formData.append('gender', gender)
+    formData.append('nik', cleanNik)
+    formData.append('birth_place', birthPlace.trim())
+    formData.append('birth_date', birthDate)
+    formData.append('address', address.trim())
+    formData.append('branch_id', branchId)
+    formData.append('passport_number', passportNumber.trim().toUpperCase())
+    formData.append('passport_expiry', passportExpiry)
+    formData.append('emergency_contact_name', emergencyContactName.trim())
+    formData.append('emergency_contact_phone', emergencyContactPhone.trim())
 
-    const res = await completePilgrimProfile(payload)
+    if (passportFile) formData.append('passportFile', passportFile)
+    if (ktpFile) formData.append('ktpFile', ktpFile)
+
+    const res = await completePilgrimProfile(formData)
 
     if (res.success) {
       // INSTANT DIRECT REDIRECT KE DASHBOARD JAMAAH
@@ -515,6 +521,79 @@ export default function CompleteProfilePage() {
                   onChange={(e) => setPassportExpiry(e.target.value)}
                   className="h-10 text-sm"
                 />
+              </div>
+            </div>
+
+            {/* Upload Berkas Paspor & KTP */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#0d7a64]" />
+                  Upload Berkas Identitas (Paspor &amp; KTP)
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Lampirkan foto atau scan paspor &amp; KTP Anda (format JPG, PNG, atau PDF maks 5MB)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* File 1: Paspor */}
+                <div className={`p-4 rounded-xl border-2 border-dashed transition-all flex flex-col justify-between ${passportFile ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${passportFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                      {passportFile ? <FileCheck className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                    </div>
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                        Scan / Foto Paspor Asli
+                      </span>
+                      <span className="text-[11px] text-slate-500 block truncate">
+                        {passportFile ? passportFile.name : 'Pilih file scan halaman utama paspor'}
+                      </span>
+                    </div>
+                  </div>
+                  <label className="mt-3 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 cursor-pointer transition-colors shadow-2xs">
+                    <span>{passportFile ? 'Ganti File' : 'Pilih Berkas Paspor'}</span>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        setPassportFile(file)
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* File 2: KTP */}
+                <div className={`p-4 rounded-xl border-2 border-dashed transition-all flex flex-col justify-between ${ktpFile ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${ktpFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                      {ktpFile ? <FileCheck className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                    </div>
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                        Scan / Foto KTP Elektronik
+                      </span>
+                      <span className="text-[11px] text-slate-500 block truncate">
+                        {ktpFile ? ktpFile.name : 'Pilih file scan KTP asli'}
+                      </span>
+                    </div>
+                  </div>
+                  <label className="mt-3 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 cursor-pointer transition-colors shadow-2xs">
+                    <span>{ktpFile ? 'Ganti File' : 'Pilih Berkas KTP'}</span>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        setKtpFile(file)
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
           </div>

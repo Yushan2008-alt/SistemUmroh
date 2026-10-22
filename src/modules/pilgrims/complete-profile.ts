@@ -80,7 +80,7 @@ export async function getCompleteProfileInitialData(): Promise<{
 }
 
 export async function completePilgrimProfile(
-  data: CompleteProfileInput
+  input: FormData | CompleteProfileInput
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient()
@@ -92,51 +92,68 @@ export async function completePilgrimProfile(
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' }
     }
 
-        // STRICT VALIDATION: ALL FIELDS MANDATORY
-    if (!data.name || !data.name.trim()) {
+    // Extract fields whether passed as FormData or plain object
+    const isFormData = typeof (input as any)?.get === 'function'
+    const name = String(isFormData ? (input as FormData).get('name') || '' : (input as CompleteProfileInput).name || '').trim()
+    const rawPhone = String(isFormData ? (input as FormData).get('phone') || '' : (input as CompleteProfileInput).phone || '').trim()
+    const gender = (isFormData ? ((input as FormData).get('gender') as Gender) : (input as CompleteProfileInput).gender) || 'male'
+    const rawNik = String(isFormData ? (input as FormData).get('nik') || '' : (input as CompleteProfileInput).nik || '').trim()
+    const birthPlace = String(isFormData ? (input as FormData).get('birth_place') || '' : (input as CompleteProfileInput).birth_place || '').trim()
+    const birthDate = String(isFormData ? (input as FormData).get('birth_date') || '' : (input as CompleteProfileInput).birth_date || '').trim()
+    const address = String(isFormData ? (input as FormData).get('address') || '' : (input as CompleteProfileInput).address || '').trim()
+    const branchId = Number(isFormData ? (input as FormData).get('branch_id') : (input as CompleteProfileInput).branch_id) || 1
+    const passportNumber = String(isFormData ? (input as FormData).get('passport_number') || '' : (input as CompleteProfileInput).passport_number || '').trim().toUpperCase()
+    const passportExpiry = String(isFormData ? (input as FormData).get('passport_expiry') || '' : (input as CompleteProfileInput).passport_expiry || '').trim()
+    const emergencyContactName = String(isFormData ? (input as FormData).get('emergency_contact_name') || '' : (input as CompleteProfileInput).emergency_contact_name || '').trim()
+    const emergencyContactPhone = String(isFormData ? (input as FormData).get('emergency_contact_phone') || '' : (input as CompleteProfileInput).emergency_contact_phone || '').trim()
+
+    const passportFile = isFormData ? ((input as FormData).get('passportFile') as File | null) : null
+    const ktpFile = isFormData ? ((input as FormData).get('ktpFile') as File | null) : null
+
+    // STRICT VALIDATION
+    if (!name) {
       return { success: false, error: 'Nama Lengkap sesuai KTP wajib diisi.' }
     }
 
-    const cleanPhone = (data.phone || '').trim()
+    const cleanPhone = rawPhone.replace(/\D/g, '')
     if (!cleanPhone || cleanPhone.length < 10) {
       return { success: false, error: 'Nomor WhatsApp / Handphone wajib diisi minimal 10 digit.' }
     }
 
-    const cleanNik = (data.nik || '').replace(/\D/g, '')
+    const cleanNik = rawNik.replace(/\D/g, '')
     if (cleanNik.length !== 16) {
       return { success: false, error: 'Nomor NIK KTP wajib tepat 16 digit angka.' }
     }
 
-    if (!data.birth_place || !data.birth_place.trim()) {
+    if (!birthPlace) {
       return { success: false, error: 'Tempat Lahir wajib diisi.' }
     }
 
-    if (!data.birth_date) {
+    if (!birthDate) {
       return { success: false, error: 'Tanggal Lahir wajib diisi.' }
     }
 
-    if (!data.address || !data.address.trim()) {
+    if (!address) {
       return { success: false, error: 'Alamat domisili lengkap wajib diisi.' }
     }
 
-    if (!data.branch_id) {
+    if (!branchId) {
       return { success: false, error: 'Pilih salah satu kantor cabang pendaftaran.' }
     }
 
-    const cleanPassport = (data.passport_number || '').trim()
-    if (!cleanPassport) {
+    if (!passportNumber) {
       return { success: false, error: 'Nomor Paspor wajib diisi.' }
     }
 
-    if (!data.passport_expiry) {
+    if (!passportExpiry) {
       return { success: false, error: 'Masa berlaku paspor wajib diisi.' }
     }
 
-    if (!data.emergency_contact_name || !data.emergency_contact_name.trim()) {
+    if (!emergencyContactName) {
       return { success: false, error: 'Nama kontak darurat keluarga wajib diisi.' }
     }
 
-    const cleanEmerPhone = (data.emergency_contact_phone || '').trim()
+    const cleanEmerPhone = emergencyContactPhone.replace(/\D/g, '')
     if (!cleanEmerPhone || cleanEmerPhone.length < 10) {
       return { success: false, error: 'Nomor telepon kontak darurat wajib diisi minimal 10 digit.' }
     }
@@ -157,14 +174,14 @@ export async function completePilgrimProfile(
       }
     }
 
-    const branchId = Number(data.branch_id)
+    const userEmail = user.email || user.user_metadata?.email || ''
 
     // 2. Perbarui tabel profiles
     const { error: profileError } = await adminSupabase.from('profiles').upsert({
       id: user.id,
-      email: user.email,
-      name: data.name.trim(),
-      phone: cleanPhone,
+      email: userEmail,
+      name,
+      phone: rawPhone,
       branch_id: branchId,
       role: 'pilgrim',
       is_active: true,
@@ -183,58 +200,149 @@ export async function completePilgrimProfile(
       .eq('profile_id', user.id)
       .maybeSingle()
 
+    const targetPilgrimId = existingPilgrim?.id || (existingNik && !existingNik.profile_id ? existingNik.id : null)
+
     const pilgrimPayload = {
       branch_id: branchId,
       profile_id: user.id,
-      name: data.name.trim(),
-      gender: data.gender,
+      name,
+      gender,
       nik: cleanNik,
-      birth_place: data.birth_place?.trim() || null,
-      birth_date: data.birth_date || null,
-      phone: cleanPhone,
-      address: data.address.trim(),
-      passport_number: data.passport_number?.trim() || null,
-      passport_expiry: data.passport_expiry || null,
-      emergency_contact_name: data.emergency_contact_name?.trim() || null,
-      emergency_contact_phone: data.emergency_contact_phone?.trim() || null,
+      birth_place: birthPlace || null,
+      birth_date: birthDate || null,
+      phone: rawPhone,
+      address,
+      passport_number: passportNumber || null,
+      passport_expiry: passportExpiry || null,
+      emergency_contact_name: emergencyContactName || null,
+      emergency_contact_phone: emergencyContactPhone || null,
       is_active: true,
       updated_at: new Date().toISOString(),
     }
 
-    if (existingPilgrim) {
-      // Update data jamaah yang sudah ada
+    let finalPilgrimId: number
+
+    if (targetPilgrimId) {
+      // Update data jamaah yang sudah ada (menghindari duplikasi NIK)
       const { error: updatePilgrimError } = await adminSupabase
         .from('pilgrims')
         .update(pilgrimPayload)
-        .eq('id', existingPilgrim.id)
+        .eq('id', targetPilgrimId)
 
       if (updatePilgrimError) {
         return { success: false, error: updatePilgrimError.message }
       }
+      finalPilgrimId = targetPilgrimId
     } else {
       // Buat data jamaah baru dengan kode unik
       const prefix = `JM-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`
       const randomSuffix = Math.floor(1000 + Math.random() * 9000)
       const generatedCode = `${prefix}-${randomSuffix}`
 
-      const { error: insertPilgrimError } = await adminSupabase.from('pilgrims').insert({
-        ...pilgrimPayload,
-        code: generatedCode,
-      })
+      const { data: insertedPilgrim, error: insertPilgrimError } = await adminSupabase
+        .from('pilgrims')
+        .insert({
+          ...pilgrimPayload,
+          code: generatedCode,
+        })
+        .select('id')
+        .single()
 
-      if (insertPilgrimError) {
+      if (insertPilgrimError || !insertedPilgrim) {
         console.error('Error inserting pilgrim:', insertPilgrimError)
-        return { success: false, error: insertPilgrimError.message }
+        return { success: false, error: insertPilgrimError?.message || 'Gagal menyimpan data jamaah.' }
+      }
+      finalPilgrimId = insertedPilgrim.id
+    }
+
+    // 4. Upload berkas Paspor & KTP jika dilampirkan
+    const bucket = process.env.NEXT_PUBLIC_STORAGE_VAULT_BUCKET || 'documents'
+
+    if (passportFile && passportFile.size > 0) {
+      try {
+        const ext = passportFile.name.split('.').pop() || 'jpg'
+        const path = `pilgrims/${finalPilgrimId}/passport_${Date.now()}.${ext}`
+        const buf = Buffer.from(await passportFile.arrayBuffer())
+        await adminSupabase.storage.from(bucket).upload(path, buf, {
+          contentType: passportFile.type,
+          upsert: true,
+        })
+
+        const { data: existingDoc } = await adminSupabase
+          .from('documents')
+          .select('id')
+          .eq('pilgrim_id', finalPilgrimId)
+          .eq('type', 'passport')
+          .maybeSingle()
+
+        const docData = {
+          pilgrim_id: finalPilgrimId,
+          type: 'passport',
+          label: 'Paspor Asli (Masa berlaku > 8 bulan)',
+          file_path: path,
+          original_name: passportFile.name,
+          file_size: passportFile.size,
+          status: 'uploaded',
+          uploaded_at: new Date().toISOString(),
+          note: 'Diunggah saat melengkapi profil jamaah',
+        }
+
+        if (existingDoc) {
+          await adminSupabase.from('documents').update(docData).eq('id', existingDoc.id)
+        } else {
+          await adminSupabase.from('documents').insert(docData)
+        }
+      } catch (err: any) {
+        console.error('Error saving passport document file:', err)
       }
     }
 
-    // 4. Catat ke activity_logs
+    if (ktpFile && ktpFile.size > 0) {
+      try {
+        const ext = ktpFile.name.split('.').pop() || 'jpg'
+        const path = `pilgrims/${finalPilgrimId}/ktp_${Date.now()}.${ext}`
+        const buf = Buffer.from(await ktpFile.arrayBuffer())
+        await adminSupabase.storage.from(bucket).upload(path, buf, {
+          contentType: ktpFile.type,
+          upsert: true,
+        })
+
+        const { data: existingDoc } = await adminSupabase
+          .from('documents')
+          .select('id')
+          .eq('pilgrim_id', finalPilgrimId)
+          .eq('type', 'ktp')
+          .maybeSingle()
+
+        const docData = {
+          pilgrim_id: finalPilgrimId,
+          type: 'ktp',
+          label: 'KTP Elektronik',
+          file_path: path,
+          original_name: ktpFile.name,
+          file_size: ktpFile.size,
+          status: 'uploaded',
+          uploaded_at: new Date().toISOString(),
+          note: 'Diunggah saat melengkapi profil jamaah',
+        }
+
+        if (existingDoc) {
+          await adminSupabase.from('documents').update(docData).eq('id', existingDoc.id)
+        } else {
+          await adminSupabase.from('documents').insert(docData)
+        }
+      } catch (err: any) {
+        console.error('Error saving KTP document file:', err)
+      }
+    }
+
+    // 5. Catat ke activity_logs
     try {
       await adminSupabase.from('activity_logs').insert({
         user_id: user.id,
         action: 'complete_profile',
-        description: `Jamaah ${data.name.trim()} berhasil melengkapi data profil akun.`,
-        properties: { nik: cleanNik, phone: cleanPhone, branch_id: branchId },
+        description: `Jamaah ${name} berhasil melengkapi data profil akun & dokumen.`,
+        properties: { nik: cleanNik, phone: rawPhone, branch_id: branchId },
         created_at: new Date().toISOString(),
       })
     } catch (logErr) {
@@ -243,6 +351,7 @@ export async function completePilgrimProfile(
 
     revalidatePath('/dashboard')
     revalidatePath('/pilgrims')
+    revalidatePath('/documents')
 
     return { success: true }
   } catch (err: any) {

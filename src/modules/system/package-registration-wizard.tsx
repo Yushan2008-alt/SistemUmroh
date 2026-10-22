@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { registerPilgrimWithSteps } from './dashboard.actions'
+import { MidtransPaymentModal } from '@/modules/finance'
 
 interface PackageRegistrationWizardModalProps {
   pkg: any
@@ -44,6 +45,8 @@ export function PackageRegistrationWizardModal({
 }: PackageRegistrationWizardModalProps) {
   const [step, setStep] = useState<number>(1)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmedBooking, setConfirmedBooking] = useState<{ registrationId: number; paymentItem?: any } | null>(null)
+  const [isMidtransOpen, setIsMidtransOpen] = useState(false)
 
   // Step 1: Room Selection
   const [roomType, setRoomType] = useState<'quad' | 'triple' | 'double'>('quad')
@@ -145,14 +148,6 @@ export function PackageRegistrationWizardModal({
       toast.error('Anda wajib menyetujui Syarat & Ketentuan Keberangkatan.')
       return
     }
-    if (!passportFile) {
-      toast.error('Berkas Paspor wajib diunggah untuk melanjutkan.')
-      return
-    }
-    if (!healthCertFile) {
-      toast.error('Berkas Surat Kesehatan / Kartu Vaksin wajib diunggah.')
-      return
-    }
     setStep(4)
   }
 
@@ -179,7 +174,14 @@ export function PackageRegistrationWizardModal({
       if (res.success) {
         toast.success(res.message)
         onSuccess()
-        onClose()
+        if (res.paymentItem) {
+          setConfirmedBooking({
+            registrationId: res.registrationId!,
+            paymentItem: res.paymentItem,
+          })
+        } else {
+          onClose()
+        }
       } else {
         toast.error(res.message)
       }
@@ -215,44 +217,110 @@ export function PackageRegistrationWizardModal({
           </button>
         </div>
 
-        {/* PROGRESS STEPPER BAR */}
-        <div className="px-6 py-3 bg-muted/30 border-b border-border/60 shrink-0">
-          <div className="grid grid-cols-5 gap-2">
-            {[
-              { num: 1, label: 'Paket & Kamar' },
-              { num: 2, label: 'Data Diri' },
-              { num: 3, label: 'S&K & Berkas' },
-              { num: 4, label: 'Biaya' },
-              { num: 5, label: 'Skema Bayar' },
-            ].map((s) => {
-              const isPassed = step > s.num
-              const isCurrent = step === s.num
-              return (
-                <div key={s.num} className="flex flex-col items-center text-center">
-                  <div
-                    className={`h-1.5 w-full rounded-full mb-1.5 transition-all duration-300 ${
-                      isPassed ? 'bg-emerald-600' : isCurrent ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-muted'
-                    }`}
-                  />
-                  <span
-                    className={`text-[10px] font-bold truncate max-w-full ${
-                      isCurrent
-                        ? 'text-emerald-700 dark:text-emerald-300'
-                        : isPassed
-                        ? 'text-foreground'
-                        : 'text-muted-foreground'
-                    }`}
-                  >
-                    {s.num}. {s.label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        {/* If Confirmed: Show Instant Checkout Screen */}
+        {confirmedBooking ? (
+          <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
+              <CheckCircle2 className="w-9 h-9" />
+            </div>
 
-        {/* MODAL BODY (SCROLLABLE) */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="max-w-md space-y-2">
+              <span className="text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200">
+                Pendaftaran Berhasil Dikonfirmasi
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                Ahlan wa Sahlan, Kursi Anda Terkunci!
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Pendaftaran paket <strong>{pkg.name}</strong> telah berhasil disahkan oleh sistem Al-Madinah Travel. Tagihan invoice resmi Anda telah siap untuk dibayarkan.
+              </p>
+            </div>
+
+            {/* Invoice Breakdown Card */}
+            <div className="w-full max-w-md p-5 rounded-2xl border border-border bg-card shadow-xs text-xs space-y-3 text-left">
+              <div className="flex justify-between items-center pb-2.5 border-b border-border/60">
+                <span className="text-muted-foreground">Tipe Tagihan:</span>
+                <strong className="text-foreground">
+                  {confirmedBooking.paymentItem?.type === 'down_payment' ? 'Uang Muka (DP 50%)' : 'Pelunasan Penuh (100%)'}
+                </strong>
+              </div>
+              <div className="flex justify-between items-center pb-2.5 border-b border-border/60">
+                <span className="text-muted-foreground">Nomor Invoice:</span>
+                <span className="font-mono font-bold text-foreground">
+                  {confirmedBooking.paymentItem?.code || 'INV-' + confirmedBooking.registrationId}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm pt-1">
+                <span className="font-semibold text-foreground">Total Tagihan Saat Ini:</span>
+                <strong className="text-emerald-700 dark:text-emerald-400 font-mono text-base font-bold">
+                  {formatCurrency(Number(confirmedBooking.paymentItem?.amount) || dpAmount)}
+                </strong>
+              </div>
+            </div>
+
+            {/* Actions: Bayar Sekarang via Midtrans vs Nanti */}
+            <div className="w-full max-w-md space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsMidtransOpen(true)}
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <CreditCard className="w-4 h-4 text-emerald-200" />
+                <span>Bayar Sekarang (Midtrans Snap)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onSuccess()
+                  onClose()
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                Bayar Nanti di Portal Jamaah
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* PROGRESS STEPPER BAR */}
+            <div className="px-6 py-3 bg-muted/30 border-b border-border/60 shrink-0">
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { num: 1, label: 'Paket & Kamar' },
+                  { num: 2, label: 'Data Diri' },
+                  { num: 3, label: 'S&K & Berkas' },
+                  { num: 4, label: 'Biaya' },
+                  { num: 5, label: 'Skema Bayar' },
+                ].map((s) => {
+                  const isPassed = step > s.num
+                  const isCurrent = step === s.num
+                  return (
+                    <div key={s.num} className="flex flex-col items-center text-center">
+                      <div
+                        className={`h-1.5 w-full rounded-full mb-1.5 transition-all duration-300 ${
+                          isPassed ? 'bg-emerald-600' : isCurrent ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-muted'
+                        }`}
+                      />
+                      <span
+                        className={`text-[10px] font-bold truncate max-w-full ${
+                          isCurrent
+                            ? 'text-emerald-700 dark:text-emerald-300'
+                            : isPassed
+                            ? 'text-foreground'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {s.num}. {s.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* MODAL BODY (SCROLLABLE) */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* ================================================================= */}
           {/* STEP 1: RINCIAN PAKET & PILIHAN KAMAR                             */}
           {/* ================================================================= */}
@@ -584,104 +652,15 @@ export function PackageRegistrationWizardModal({
                 </label>
               </div>
 
-              {/* Upload Berkas Wajib (Ketat) */}
-              <div className="space-y-3 pt-3 border-t border-border/60">
-                <div>
-                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    Upload Dokumen Keberangkatan (Wajib Dilampirkan)
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Sesuai regulasi verifikasi awal, berkas scan Paspor dan Surat Kesehatan/Vaksin wajib dilampirkan sebelum pendaftaran disahkan.
+              {/* Dokumen Terverifikasi dari Profil */}
+              <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold block">Verifikasi Identitas &amp; Dokumen Otomatis</span>
+                  <p className="text-emerald-800/90 dark:text-emerald-300/90 leading-relaxed text-[11px]">
+                    Data identitas diri, paspor, dan kontak darurat Anda telah terverifikasi langsung dari profil akun jamaah. Anda tidak perlu mengunggah ulang dokumen di sini dan dapat langsung melanjutkan ke rincian biaya transparan.
                   </p>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* File 1: Paspor */}
-                  <div
-                    onClick={() => passportInputRef.current?.click()}
-                    className={`cursor-pointer p-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center space-y-2 ${
-                      passportFile
-                        ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
-                        : 'border-border hover:border-emerald-400 bg-card'
-                    }`}
-                  >
-                    <input
-                      ref={passportInputRef}
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.pdf"
-                      onChange={handlePassportChange}
-                      className="hidden"
-                    />
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        passportFile
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {passportFile ? <FileCheck className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-foreground block">
-                        1. Scan / Foto Paspor Asli <span className="text-rose-500">*</span>
-                      </span>
-                      <span className="text-[11px] text-muted-foreground block mt-0.5">
-                        {passportFile ? (
-                          <strong className="text-emerald-700 dark:text-emerald-300">{passportFile.name}</strong>
-                        ) : (
-                          'Klik untuk pilih file JPG / PNG / PDF (Maks 5MB)'
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* File 2: Surat Kesehatan / Vaksin */}
-                  <div
-                    onClick={() => healthCertInputRef.current?.click()}
-                    className={`cursor-pointer p-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center space-y-2 ${
-                      healthCertFile
-                        ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
-                        : 'border-border hover:border-emerald-400 bg-card'
-                    }`}
-                  >
-                    <input
-                      ref={healthCertInputRef}
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.pdf"
-                      onChange={handleHealthCertChange}
-                      className="hidden"
-                    />
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        healthCertFile
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {healthCertFile ? <FileCheck className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-foreground block">
-                        2. Surat Kesehatan / Kartu Vaksin <span className="text-rose-500">*</span>
-                      </span>
-                      <span className="text-[11px] text-muted-foreground block mt-0.5">
-                        {healthCertFile ? (
-                          <strong className="text-emerald-700 dark:text-emerald-300">{healthCertFile.name}</strong>
-                        ) : (
-                          'Klik untuk pilih file JPG / PNG / PDF (Maks 5MB)'
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {(!passportFile || !healthCertFile) && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>Lengkapi kedua berkas di atas untuk mengaktifkan tombol lanjut ke rincian biaya.</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -894,7 +873,7 @@ export function PackageRegistrationWizardModal({
               <button
                 type="button"
                 onClick={handleNextFromStep3}
-                disabled={!termsAccepted || !passportFile || !healthCertFile}
+                disabled={!termsAccepted}
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold shadow-md transition-all inline-flex items-center gap-2"
               >
                 <span>Lanjut ke Rincian Biaya</span>
@@ -935,7 +914,23 @@ export function PackageRegistrationWizardModal({
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
+
+      {/* Midtrans Snap Payment Gateway Modal for Instant Checkout */}
+      {confirmedBooking?.paymentItem && (
+        <MidtransPaymentModal
+          payment={confirmedBooking.paymentItem}
+          isOpen={isMidtransOpen}
+          onClose={() => setIsMidtransOpen(false)}
+          onSuccess={() => {
+            setIsMidtransOpen(false)
+            onSuccess()
+            onClose()
+          }}
+        />
+      )}
     </div>
   )
 }

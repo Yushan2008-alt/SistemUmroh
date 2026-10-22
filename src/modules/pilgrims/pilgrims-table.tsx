@@ -17,6 +17,7 @@ import {
   FileText,
   Building2,
   ShieldAlert,
+  Info,
 } from 'lucide-react'
 import type { PilgrimItem } from './types'
 import { deletePilgrim } from './pilgrims.actions'
@@ -179,6 +180,23 @@ export function PilgrimsTable({
           </Link>
         )}
       </div>
+
+      {/* Info Banner Khusus Muthawif / Guide */}
+      {userRole === 'guide' && (
+        <div className="p-4 rounded-2xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/60 text-teal-900 dark:text-teal-200 text-sm flex items-start gap-3.5 shadow-xs animate-fadeIn">
+          <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-900/60 flex items-center justify-center shrink-0 text-teal-700 dark:text-teal-300">
+            <Info className="w-4 h-4" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-bold text-sm text-teal-950 dark:text-teal-100">
+              Peran Pembimbing Ibadah (Muthawif / Guide)
+            </h4>
+            <p className="text-xs text-teal-800/80 dark:text-teal-300/80 leading-relaxed">
+              Anda berfokus pada pembimbingan ibadah, pendampingan manasik, dan pemantauan kondisi jamaah pada rombongan paket yang ditugaskan kepada Anda. Pendaftaran jamaah baru dilakukan oleh Kantor Cabang atau Mitra Agen Resmi.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {errorMessage && (

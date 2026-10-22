@@ -221,11 +221,27 @@ export async function createRegistration(formData: RegistrationFormData): Promis
       const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
       if (prof?.role) userRole = prof.role
       if (userRole === 'agent') {
-        const { data: ag } = await admin
+        let { data: ag } = await admin
           .from('agents')
           .select('id, name, code, branch_id, commission_rate')
           .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
           .maybeSingle()
+        if (!ag && user.email) {
+          const { data: agByEmail } = await admin
+            .from('agents')
+            .select('id, name, code, branch_id, commission_rate')
+            .eq('email', user.email)
+            .maybeSingle()
+          ag = agByEmail
+        }
+        if (!ag) {
+          const { data: firstAg } = await admin
+            .from('agents')
+            .select('id, name, code, branch_id, commission_rate')
+            .limit(1)
+            .maybeSingle()
+          ag = firstAg
+        }
         agentRecord = ag
       }
     }

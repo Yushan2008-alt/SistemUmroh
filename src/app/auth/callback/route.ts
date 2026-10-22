@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database.types'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -35,25 +36,28 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser()
 
       if (user) {
-        // 1. Cek atau inisialisasi profil pengguna
-        const { data: profile } = await (supabase as any)
+        // 1. Cek atau inisialisasi profil pengguna via admin client (bebas RLS)
+        const adminSupabase = createAdminClient() as any
+        const { data: profile } = await adminSupabase
           .from('profiles')
           .select('id, role, name, phone, branch_id')
           .eq('id', user.id)
           .maybeSingle()
+
+        const userEmail = user.email || user.user_metadata?.email || ''
 
         if (!profile) {
           // Pengguna baru dari Google OAuth -> daftarkan sebagai role 'pilgrim' (Jamaah)
           const fullName =
             user.user_metadata?.full_name ||
             user.user_metadata?.name ||
-            user.email?.split('@')[0] ||
+            userEmail.split('@')[0] ||
             'Jamaah Baru'
           const avatarUrl = user.user_metadata?.avatar_url || null
 
-          await (supabase as any).from('profiles').insert({
+          await adminSupabase.from('profiles').upsert({
             id: user.id,
-            email: user.email,
+            email: userEmail,
             name: fullName,
             avatar_url: avatarUrl,
             role: 'pilgrim',
@@ -63,7 +67,7 @@ export async function GET(request: NextRequest) {
           targetPath = '/complete-profile'
         } else if (profile.role === 'pilgrim') {
           // 2. Periksa apakah data jamaah di tabel pilgrims sudah lengkap
-          const { data: pilgrim } = await (supabase as any)
+          const { data: pilgrim } = await adminSupabase
             .from('pilgrims')
             .select('id, nik, phone')
             .eq('profile_id', user.id)
